@@ -2,36 +2,37 @@
 package eiscp
 
 import (
-	"bufio"
+    // "io/ioutil"
 	"fmt"
 	"net"
 )
 
 // Device of Onkyo receiver
 type Device struct {
+    Host            string
 	conn            net.Conn
-	channel         *bufio.Reader
 	destinationType DeviceType
 	version         byte
-	Verbose         bool
 }
 
-// NewDevice - create and connect to eISCP device (Onkyo)
+// NewDevice - create and connect to eISCP device
+// just use the NewReceiver shortcut
 func NewDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, error) {
-	dev := new(Device)
-	dev.destinationType = deviceType
-	dev.version = iscpVersion
-	err := dev.connect(host)
+	d := Device{
+        Host: host,
+        destinationType: deviceType,
+        version: iscpVersion,
+    }
+	err := d.Connect()
 	if err != nil {
-		dev.Close()
 		return nil, err
 	}
-	return dev, nil
+	return &d, nil
 }
 
 // NewReceiver - sugar for NewDevice with Receiver as device type and version 1
 func NewReceiver(host string) (*Device, error) {
-	return NewDevice(host, Receiver, 0x01)
+	return NewDevice(host, TypeReceiver, 0x01)
 }
 
 // Close connection
@@ -39,80 +40,75 @@ func (d *Device) Close() error {
 	if d.conn != nil {
 		return d.conn.Close()
 	}
+    d.conn = nil
 	return nil
 }
 
-// ReadMessage - read raw eISCP message
-func (d *Device) ReadMessage() (Message, error) {
-	msg := Message{}
-	err := msg.Parse(d.channel)
+
+// Connect to an eISCP device by v4 IP address (not host name)
+func (d *Device) Connect() error {
+    r := net.TCPAddr{
+        IP:   net.ParseIP(d.Host),
+        Port: 60128,
+    }
+
+    // fmt.Printf("DialTCP: %+v\n", r)
+    conn, err := net.DialTCP("tcp4", nil, &r)
+    d.conn = conn
 	if err != nil {
-		return msg, err
-	}
-	return msg, err
+        fmt.Println(err.Error())
+        return err
+    }
+	return nil
 }
 
-// WriteMessage - write raw eISCP message
-func (d *Device) WriteMessage(msg Message) error {
-	req := msg.BuildEISCP()
-	if d.Verbose {
-		fmt.Printf("Req: % x\n", req)
+// Read, parse, and validate
+func (d *Device) readResponse() (*Message, error) {
+    raw := make([]byte, 1024)
+    n, err := d.conn.Read(raw)
+    if err != nil {
+        fmt.Printf("Cannot read data from device: %s", err.Error())
+        return nil, err
+    }
+    if n > 1024 {
+        fmt.Println("result overran buffer, bailing")
+        return nil, err
+    }
+    // fmt.Printf("raw response:\n%s\n(%d bytes read)\n", string(raw), n)
+
+    var msg Message
+    if err := msg.Parse(&raw); err != nil {
+		return nil, err
 	}
-	_, err := d.conn.Write(req)
-	return err
+	return &msg, nil
 }
 
 // WriteCommand - write command with arg to remote connection
-func (d *Device) WriteCommand(command, arg string) error {
+func (d *Device) writeCommand(command, arg string) error {
 	if d.conn == nil {
 		return fmt.Errorf("Not connected")
 	}
-	msg := Message{}
-	msg.Destination = byte(d.destinationType)
-	msg.Version = d.version
-	msg.ISCP = []byte(command + arg)
+
+	msg := Message{
+        Destination: byte(d.destinationType),
+        Version: d.version,
+        ISCP: []byte(command + arg),
+    }
 	req := msg.BuildEISCP()
-	if d.Verbose {
-		fmt.Printf("Req: % x\n", req)
-	}
+	// fmt.Printf("req: %+v %s\n", req, string(req))
 	_, err := d.conn.Write(req)
 	return err
 }
 
-// Utility functions
-//  |           |
-//  V           V
-
-// Connect device to Onkyo host
-func (d *Device) connect(host string) error {
-	conn, err := net.Dial("tcp", host)
-	d.conn = conn
-	if err == nil {
-		d.channel = bufio.NewReader(d.conn)
-		_, err := d.ReadMessage()
-		if err != nil {
-			conn.Close()
-			return err
-		}
-	}
-	return err
-}
-
-func (d *Device) readResponse(command string) error {
-	msg, err := d.ReadMessage()
+// Set does a WriteCommand followed by a ReadResponse
+func (d *Device) Set(command, arg string) (*Message, error) {
+	err := d.writeCommand(command, arg)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if string(msg.ISCP[3:]) == "N/A" {
-		return fmt.Errorf("Not available")
-	}
-	return nil
-}
-
-func (d *Device) requestSet(command, arg string) error {
-	err := d.WriteCommand(command, arg)
+    msg, err := d.readResponse()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return d.readResponse(command)
+    return msg, nil
 }

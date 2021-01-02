@@ -1,7 +1,6 @@
 package eiscp
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -12,56 +11,47 @@ type DeviceType byte
 
 // Destination code
 const (
-	Receiver DeviceType = 0x31
+	TypeReceiver DeviceType = 0x31
 )
 
 // Message eISCP
 type Message struct {
 	Version     byte
 	Destination byte
+    headerSize  uint32
+    dataSize    uint32
 	ISCP        []byte
+    Command     string
+    Response    string
 }
 
-// Parse eISCP message from reader (one-way)
-func (msg *Message) Parse(reader *bufio.Reader) error {
-	chunk := make([]byte, 4)
-	_, err := reader.Read(chunk)
-	if err != nil {
-		return err
-	}
-	if string(chunk) != "ISCP" {
+// Parse raw read into an eISCP message
+func (msg *Message) Parse(rawP *[]byte) error {
+    raw := *rawP
+    if string(raw[:4]) != "ISCP" {
 		return fmt.Errorf("This is not EISCP message")
 	}
-	_, err = reader.Read(chunk) //Header size
-	if err != nil {
-		return err
-	}
-	if binary.BigEndian.Uint32(chunk) != 16 {
+    msg.headerSize = binary.BigEndian.Uint32(raw[4:8])
+	if msg.headerSize != 16 {
 		return fmt.Errorf("Invalid header size")
 	}
-	reader.Read(chunk) // Data size
-	dataSize := binary.BigEndian.Uint32(chunk)
-	msg.Version, err = reader.ReadByte()
-	if err != nil {
-		return err
-	}
-	reserved := make([]byte, 3)
-	_, err = reader.Read(reserved) // Skip reserved
-	if err != nil {
-		return err
-	}
-	_, err = reader.ReadByte() // Skip start character
-	if err != nil {
-		return err
-	}
-	msg.Destination, err = reader.ReadByte()
-	if err != nil {
-		return err
-	}
-	msg.ISCP = make([]byte, dataSize-2) // Trim leading control characters
-	_, err = reader.Read(msg.ISCP)
-	msg.ISCP = msg.ISCP[:len(msg.ISCP)-3] // Trim trailing EOF and EOL characters
-	return err
+
+    msg.dataSize = binary.BigEndian.Uint32(raw[8:12])
+    msg.Version = raw[12]
+    if msg.Version != 1 {
+        return fmt.Errorf("unknown version: %d", msg.Version)
+    }
+
+    // nothing should read this now, use msg.Response
+	msg.ISCP = raw[16:16+msg.dataSize]
+    if string(msg.ISCP[3:]) == "N/A" {
+        return fmt.Errorf("Not available")
+    }
+
+    msg.Command = string(raw[18:21])
+    msg.Response = string(raw[21:16 + msg.dataSize - 3])
+    fmt.Printf("%+v\n", msg)
+	return nil
 }
 
 // BuildISCP - Build ISCP message
