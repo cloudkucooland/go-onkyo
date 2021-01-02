@@ -2,7 +2,9 @@ package eiscp
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"time"
 )
 
 // DeviceType - device destination code in ISCP
@@ -19,6 +21,7 @@ type Device struct {
 	conn            net.Conn
 	destinationType DeviceType
 	version         byte
+	cache           map[string]string
 }
 
 // just use the NewReceiver shortcut
@@ -28,6 +31,7 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, e
 		destinationType: deviceType,
 		version:         iscpVersion,
 	}
+	d.cache = make(map[string]string)
 	err := d.Connect()
 	if err != nil {
 		return nil, err
@@ -77,18 +81,27 @@ func (d *Device) readResponse() (*Message, error) {
 		return nil, fmt.Errorf("not connected")
 	}
 
-	bufsiz := 256 // probably can be 128 or smaller
-	raw := make([]byte, bufsiz)
-	n, err := d.conn.Read(raw)
-	if err != nil {
-		fmt.Printf("cannot read data from device: %s", err.Error())
-		return nil, err
+	blocksize := 1024
+	bufsiz := 20 * blocksize // NRI needs 9k on my NR-686
+	raw := make([]byte, 0, bufsiz)
+	tmp := make([]byte, blocksize)
+	for {
+		n, err := d.conn.Read(tmp)
+		if err != nil && err != io.EOF {
+			fmt.Printf("cannot read data from device: %s", err.Error())
+			return nil, err
+		}
+
+		// fmt.Printf("read %d bytes: %s\n", n, string(tmp))
+		raw = append(raw, tmp[:n]...)
+
+		// saw EOF or short block, must be done
+		if err == io.EOF || n != blocksize {
+			break
+		}
+		// NRI needs this... *facepalm*
+		time.Sleep(time.Millisecond * 10)
 	}
-	if n > bufsiz {
-		fmt.Println("result overran buffer, bailing")
-		return nil, err
-	}
-	// fmt.Printf("raw response:\n%s\n(%d bytes read)\n", string(raw), n)
 
 	var msg Message
 	if err := msg.Parse(&raw); err != nil {
@@ -121,9 +134,19 @@ func (d *Device) Set(command, arg string) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
+	// if command == "NRI" { time.Sleep(time.Millisecond * 200) }
+
 	msg, err := d.readResponse()
-	if err != nil {
-		return nil, err
+
+	// the response given didn't answer the question we asked -- keep digging
+	for msg.Command != command {
+		if err != nil {
+			return nil, err
+		}
+		// store it, in case we want it later
+		d.cache[msg.Command] = msg.Response
+		// try again
+		msg, err = d.readResponse()
 	}
 	return msg, nil
 }

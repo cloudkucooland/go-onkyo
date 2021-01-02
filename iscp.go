@@ -42,7 +42,7 @@ func (msg *Message) Parse(rawP *[]byte) error {
 
 	msg.Command = string(raw[18:21])
 	msg.Response = string(raw[21 : 16+msg.dataSize-3])
-	fmt.Printf("%+v\n", msg)
+	// fmt.Printf("iscp.go: parsed: %s: %s\n", msg.Command, msg.Response)
 	return nil
 }
 
