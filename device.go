@@ -1,10 +1,16 @@
-// Package eiscp provides basic support for eISCP/ISCP protocol
 package eiscp
 
 import (
-	// "io/ioutil"
 	"fmt"
 	"net"
+)
+
+// DeviceType - device destination code in ISCP
+type DeviceType byte
+
+// Destination code
+const (
+	TypeReceiver DeviceType = 0x31
 )
 
 // Device of Onkyo receiver
@@ -15,9 +21,8 @@ type Device struct {
 	version         byte
 }
 
-// NewDevice - create and connect to eISCP device
 // just use the NewReceiver shortcut
-func NewDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, error) {
+func newDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, error) {
 	d := Device{
 		Host:            host,
 		destinationType: deviceType,
@@ -31,8 +36,9 @@ func NewDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, e
 }
 
 // NewReceiver - sugar for NewDevice with Receiver as device type and version 1
+// host must be an IPv4 dotted-quad address... for now
 func NewReceiver(host string) (*Device, error) {
-	return NewDevice(host, TypeReceiver, 0x01)
+	return newDevice(host, TypeReceiver, 0x01)
 }
 
 // Close connection
@@ -46,12 +52,17 @@ func (d *Device) Close() error {
 
 // Connect to an eISCP device by v4 IP address (not host name)
 func (d *Device) Connect() error {
+	if d.conn != nil {
+		fmt.Println("already connected")
+		return nil
+	}
+
+	// now that I can move data, switch this back to net.Dial to be more flexible
 	r := net.TCPAddr{
 		IP:   net.ParseIP(d.Host),
 		Port: 60128,
 	}
 
-	// fmt.Printf("DialTCP: %+v\n", r)
 	conn, err := net.DialTCP("tcp4", nil, &r)
 	d.conn = conn
 	if err != nil {
@@ -61,15 +72,19 @@ func (d *Device) Connect() error {
 	return nil
 }
 
-// Read, parse, and validate
 func (d *Device) readResponse() (*Message, error) {
-	raw := make([]byte, 1024)
+	if d.conn == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	bufsiz := 256 // probably can be 128 or smaller
+	raw := make([]byte, bufsiz)
 	n, err := d.conn.Read(raw)
 	if err != nil {
-		fmt.Printf("Cannot read data from device: %s", err.Error())
+		fmt.Printf("cannot read data from device: %s", err.Error())
 		return nil, err
 	}
-	if n > 1024 {
+	if n > bufsiz {
 		fmt.Println("result overran buffer, bailing")
 		return nil, err
 	}
@@ -82,10 +97,10 @@ func (d *Device) readResponse() (*Message, error) {
 	return &msg, nil
 }
 
-// WriteCommand - write command with arg to remote connection
 func (d *Device) writeCommand(command, arg string) error {
 	if d.conn == nil {
-		return fmt.Errorf("Not connected")
+		// be smart and try to reconnect if possible
+		return fmt.Errorf("not connected")
 	}
 
 	msg := Message{
@@ -99,7 +114,8 @@ func (d *Device) writeCommand(command, arg string) error {
 	return err
 }
 
-// Set does a WriteCommand followed by a ReadResponse
+// Set is the primary interface to send commands to the device
+// only use this directly if a specific command is not already written
 func (d *Device) Set(command, arg string) (*Message, error) {
 	err := d.writeCommand(command, arg)
 	if err != nil {

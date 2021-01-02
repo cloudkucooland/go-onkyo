@@ -6,14 +6,6 @@ import (
 	"fmt"
 )
 
-// DeviceType - device destination code in ISCP
-type DeviceType byte
-
-// Destination code
-const (
-	TypeReceiver DeviceType = 0x31
-)
-
 // Message eISCP
 type Message struct {
 	Version     byte
@@ -25,7 +17,7 @@ type Message struct {
 	Response    string
 }
 
-// Parse raw read into an eISCP message
+// Parse raw message from network into an eISCP message
 func (msg *Message) Parse(rawP *[]byte) error {
 	raw := *rawP
 	if string(raw[:4]) != "ISCP" {
