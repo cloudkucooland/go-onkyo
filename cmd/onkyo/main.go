@@ -9,7 +9,7 @@ import (
 
 func main() {
 	hostP := flag.String("host", "", "Onkyo host")
-	param := flag.String("param", "", "Param name")
+	command := flag.String("command", "", "Param name")
 	value := flag.String("value", "", "Param value. Empty means only get")
 	listSources := flag.Bool("list-source", false, "List source")
 	flag.Parse()
@@ -31,7 +31,7 @@ func main() {
 	}
 	defer dev.Close()
 	if *value == "" {
-		switch *param {
+		switch *command {
 		case "details":
 			nri, err := dev.GetDetails()
 			if err != nil {
@@ -126,15 +126,15 @@ func main() {
 			s, _ := dev.GetListeningMode() // works
 			fmt.Printf("Listening Mode: %s\n", s)
 		default:
-			resp, err := dev.GetVolume()
+			resp, err := dev.Set(*command, "QSTN")
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Printf("current volume: %d\n", resp)
+			fmt.Printf("reply: %+v\n", resp)
 		}
 	} else {
-		switch *param {
+		switch *command {
 		case "power":
 			v, err := strconv.ParseBool(*value)
 			if err != nil {
@@ -188,7 +188,11 @@ func main() {
 			}
 			fmt.Println(state)
 		default:
-			panic("Unknow param")
+			msg, err := dev.Set(*command, *value)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("reply: %+v\n", msg)
 		}
 	}
 }
