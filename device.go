@@ -125,6 +125,7 @@ func (d *Device) writeCommand(command, arg string) error {
 	req := msg.BuildEISCP()
 	// fmt.Printf("req: %+v %s\n", req, string(req))
 	_, err := d.conn.Write(req)
+
 	return err
 }
 
@@ -135,9 +136,14 @@ func (d *Device) Set(command, arg string) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	// if command == "NRI" { time.Sleep(time.Millisecond * 200) }
 
 	msg, err := d.readResponse()
+	if err != nil {
+		return nil, err
+	}
+	if msg == nil {
+		return nil, fmt.Errorf("unable to read response")
+	}
 
 	// the response given didn't answer the question we asked -- keep digging
 	for msg.Command != command {
@@ -150,4 +156,12 @@ func (d *Device) Set(command, arg string) (*Message, error) {
 		msg, err = d.readResponse()
 	}
 	return msg, nil
+}
+
+func (d *Device) SetOnly(command, arg string) error {
+	err := d.writeCommand(command, arg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
