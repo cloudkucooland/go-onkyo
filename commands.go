@@ -8,9 +8,14 @@ import (
 	"strings"
 )
 
-// SetSource - Set Onkyo source channel
+// SetSource - Set Onkyo source channel by friendly name
 func (d *Device) SetSource(source Source) (*Message, error) {
 	return d.Set("SLI", string(source))
+}
+
+// SetSourceByCode - Set Onkyo source channel by code
+func (d *Device) SetSourceByCode(code int) (*Message, error) {
+	return d.Set("SLI", fmt.Sprintf("%02X", code))
 }
 
 // GetSource - Get Onkyo source channel. Use SourceToName to get readable name
@@ -55,6 +60,26 @@ func (d *Device) GetVolume() (uint8, error) {
 	return uint8(vol), err
 }
 
+func (d *Device) GetMute() (*Message, error) {
+	msg, err := d.Set("AMT", "QSTN")
+	if err != nil {
+		return nil, err
+	}
+	return msg, err
+}
+
+func (d *Device) SetMute(mute bool) (*Message, error) {
+	state := "00"
+	if mute {
+		state = "01"
+	}
+	msg, err := d.Set("AMT", state)
+	if err != nil {
+		return nil, err
+	}
+	return msg, err
+}
+
 func (d *Device) GetDetails() (*NRI, error) {
 	msg, err := d.Set("NRI", "QSTN")
 	if err != nil {
@@ -64,8 +89,6 @@ func (d *Device) GetDetails() (*NRI, error) {
 	if err := xml.Unmarshal([]byte(msg.Response), &nri); err != nil {
 		return nil, err
 	}
-	fmt.Printf("%+v", nri)
-
 	return &nri, nil
 }
 

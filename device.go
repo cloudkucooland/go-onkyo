@@ -48,9 +48,10 @@ func NewReceiver(host string) (*Device, error) {
 // Close connection
 func (d *Device) Close() error {
 	if d.conn != nil {
-		return d.conn.Close()
+		err := d.conn.Close()
+		d.conn = nil
+		return err
 	}
-	d.conn = nil
 	return nil
 }
 

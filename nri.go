@@ -6,28 +6,22 @@ import (
 
 type NRI struct {
 	XMLName xml.Name `xml:"response"`
-	Text    string   `xml:",chardata"`
-	Status  string   `xml:"status,attr"`
 	Device  struct {
-		Text             string `xml:",chardata"`
 		ID               string `xml:"id,attr"`
 		Brand            string `xml:"brand"`
 		Category         string `xml:"category"`
 		Year             string `xml:"year"`
 		Model            string `xml:"model"`
 		Destination      string `xml:"destination"`
-		Productid        string `xml:"productid"`
-		Deviceserial     string `xml:"deviceserial"`
-		Macaddress       string `xml:"macaddress"`
-		Modeliconurl     string `xml:"modeliconurl"`
-		Friendlyname     string `xml:"friendlyname"`
-		Firmwareversion  string `xml:"firmwareversion"`
-		Ecosystemversion string `xml:"ecosystemversion"`
-		Netservicelist   struct {
-			Text       string `xml:",chardata"`
-			Count      string `xml:"count,attr"`
-			Netservice []struct {
-				Text     string `xml:",chardata"`
+		ProductID        string `xml:"productid"`
+		DeviceSerial     string `xml:"deviceserial"`
+		MacAddress       string `xml:"macaddress"`
+		ModelIconURL     string `xml:"modeliconurl"`
+		FriendlyName     string `xml:"friendlyname"`
+		FirmwareVersion  string `xml:"firmwareversion"`
+		EcosystemVersion string `xml:"ecosystemversion"`
+		NetServiceList   struct {
+			NetService []struct {
 				ID       string `xml:"id,attr"`
 				Value    string `xml:"value,attr"`
 				Name     string `xml:"name,attr"`
@@ -39,11 +33,8 @@ type NRI struct {
 				Sort     string `xml:"sort,attr"`
 			} `xml:"netservice"`
 		} `xml:"netservicelist"`
-		Zonelist struct {
-			Text  string `xml:",chardata"`
-			Count string `xml:"count,attr"`
-			Zone  []struct {
-				Text     string `xml:",chardata"`
+		ZoneList struct {
+			Zone []struct {
 				ID       string `xml:"id,attr"`
 				Value    string `xml:"value,attr"`
 				Name     string `xml:"name,attr"`
@@ -54,11 +45,8 @@ type NRI struct {
 				Lrselect string `xml:"lrselect,attr"`
 			} `xml:"zone"`
 		} `xml:"zonelist"`
-		Selectorlist struct {
-			Text     string `xml:",chardata"`
-			Count    string `xml:"count,attr"`
+		SelectorList struct {
 			Selector []struct {
-				Text   string `xml:",chardata"`
 				ID     string `xml:"id,attr"`
 				Value  string `xml:"value,attr"`
 				Name   string `xml:"name,attr"`
@@ -66,22 +54,16 @@ type NRI struct {
 				Iconid string `xml:"iconid,attr"`
 			} `xml:"selector"`
 		} `xml:"selectorlist"`
-		Presetlist struct {
-			Text   string `xml:",chardata"`
-			Count  string `xml:"count,attr"`
+		PresetList struct {
 			Preset []struct {
-				Text string `xml:",chardata"`
 				ID   string `xml:"id,attr"`
 				Band string `xml:"band,attr"`
 				Freq string `xml:"freq,attr"`
 				Name string `xml:"name,attr"`
 			} `xml:"preset"`
 		} `xml:"presetlist"`
-		Controllist struct {
-			Text    string `xml:",chardata"`
-			Count   string `xml:"count,attr"`
+		ControlList struct {
 			Control []struct {
-				Text     string `xml:",chardata"`
 				ID       string `xml:"id,attr"`
 				Value    string `xml:"value,attr"`
 				Zone     string `xml:"zone,attr"`
@@ -92,20 +74,14 @@ type NRI struct {
 				Position string `xml:"position,attr"`
 			} `xml:"control"`
 		} `xml:"controllist"`
-		Functionlist struct {
-			Text     string `xml:",chardata"`
-			Count    string `xml:"count,attr"`
+		FunctionList struct {
 			Function []struct {
-				Text  string `xml:",chardata"`
 				ID    string `xml:"id,attr"`
 				Value string `xml:"value,attr"`
 			} `xml:"function"`
 		} `xml:"functionlist"`
 		Tuners struct {
-			Text  string `xml:",chardata"`
-			Count string `xml:"count,attr"`
 			Tuner []struct {
-				Text string `xml:",chardata"`
 				Band string `xml:"band,attr"`
 				Min  string `xml:"min,attr"`
 				Max  string `xml:"max,attr"`
