@@ -33,12 +33,12 @@ func main() {
 	if *value == "" {
 		switch *param {
 		case "details":
-			resp, err := dev.GetDetails()
+			nri, err := dev.GetDetails()
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Println(resp)
+			fmt.Printf("%+v\n", nri)
 		case "power":
 			resp, err := dev.GetPower()
 			if err != nil {
