@@ -65,19 +65,19 @@ func main() {
 			}
 			fmt.Println(eiscp.SourceToName[src])
 		case "network":
-			resp, err := dev.GetNetworkStatus()
+			ns, err := dev.GetNetworkStatus()
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Printf("network status: %s\n", resp)
-			resp, err = dev.GetNetworkPlayStatus()
+			fmt.Printf("network status: %+v\n", ns)
+			nps, err := dev.GetNetworkPlayStatus()
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Printf("network play status: %s\n", resp)
-			resp, err = dev.GetNetworkInfo()
+			fmt.Printf("network play status: %+v\n", nps)
+			resp, err := dev.GetNetworkInfo()
 			if err != nil {
 				fmt.Println(err.Error())
 				return
@@ -137,7 +137,7 @@ func main() {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Printf("reply: %+v\n", resp)
+			fmt.Printf("reply: %s\n", resp.Response)
 		}
 	} else {
 		switch *command {
@@ -198,7 +198,7 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("reply: %+v\n", msg)
+			fmt.Printf("reply: %s\n", msg.Response)
 		}
 	}
 }

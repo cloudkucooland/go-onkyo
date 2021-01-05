@@ -395,6 +395,9 @@ func (d *Device) GetTempData() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if msg == nil {
+		return "0", nil
+	}
 	vals := strings.Split(msg.Response, " ")
 	return vals[2], nil
 }
@@ -426,21 +429,135 @@ func (d *Device) SetNetworkPreset(p string) (string, error) {
 	return msg.Response, nil
 }
 
-func (d *Device) GetNetworkStatus() (string, error) {
-	msg, err := d.Set("NDS", "QSTN")
-	// msg, err := d.Set("NLA", "QSTN")
-	if err != nil {
-		return "", err
-	}
-	return msg.Response, nil
+type NetworkStatus struct {
+	Source string
+	Front  string
+	Rear   string
 }
 
-func (d *Device) GetNetworkPlayStatus() (string, error) {
+func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
+	msg, err := d.Set("NDS", "QSTN")
+	if err != nil {
+		return nil, err
+	}
+	var ns NetworkStatus
+	switch msg.Response[0:1] {
+	case "-":
+		ns.Source = "No Connection"
+	case "E":
+		ns.Source = "Ethernet"
+	case "W":
+		ns.Source = "Wireless"
+	default:
+		ns.Source = "Unknown"
+	}
+
+	switch msg.Response[1:2] {
+	case "-":
+		ns.Front = "No Device"
+	case "i":
+		ns.Front = "iPod"
+	case "M":
+		ns.Front = "Memory/NAS"
+	case "W":
+		ns.Front = "Wireless Adaptor"
+	case "B":
+		ns.Front = "Bluetooth Adaptor"
+	case "x":
+		ns.Front = "Disabled"
+	default:
+		ns.Front = "Unknown"
+	}
+
+	switch msg.Response[2:3] {
+	case "-":
+		ns.Rear = "no device"
+	case "i":
+		ns.Rear = "iPod"
+	case "M":
+		ns.Rear = "Memory/NAS"
+	case "W":
+		ns.Rear = "Wireless Adaptor"
+	case "B":
+		ns.Rear = "Bluetooth Adaptor"
+	case "x":
+		ns.Rear = "Disabled"
+	default:
+		ns.Rear = "Unknown"
+	}
+
+	return &ns, nil
+}
+
+type NetworkPlayStatus struct {
+	State   string
+	Repeat  string
+	Shuffle string
+}
+
+func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
 	msg, err := d.Set("NST", "QSTN")
+	if err != nil {
+		return nil, err
+	}
+	var nps NetworkPlayStatus
+	switch msg.Response[0:1] {
+	case "S":
+		nps.State = "Stop"
+	case "P":
+		nps.State = "Play"
+	case "p":
+		nps.State = "Pause"
+	case "F":
+		nps.State = "Fast-Forward"
+	case "R":
+		nps.State = "Rewind"
+	case "E":
+		nps.State = "EOF"
+	}
+
+	switch msg.Response[1:2] {
+	case "-":
+		nps.Repeat = "Off"
+	case "R":
+		nps.Repeat = "All"
+	case "F":
+		nps.Repeat = "Folder"
+	case "1":
+		nps.Repeat = "One"
+	case "x":
+		nps.Repeat = "Disabled"
+	default:
+		nps.Repeat = "Unknown"
+	}
+
+	switch msg.Response[2:3] {
+	case "-":
+		nps.Shuffle = "Off"
+	case "R":
+		nps.Shuffle = "All"
+	case "F":
+		nps.Shuffle = "Folder"
+	case "1":
+		nps.Shuffle = "One"
+	case "x":
+		nps.Shuffle = "Disabled"
+	default:
+		nps.Shuffle = "Unknown"
+	}
+	return &nps, nil
+}
+
+// prs : e.g. Sxx or Pxx
+// p -> Play Status: "S": STOP, "P": Play, "p": Pause, "F": FF, "R": FR, "E": EOF
+// r Repeat Status: "-": Off, "R": All, "F": Folder, "1": Repeat 1, "x": disable
+// s Shuffle Status: "-": Off, "S": All , "A": Album, "F": Folder, "x": disable
+func (d *Device) SetNetworkPlayStatus(s string) (string, error) {
+	msg, err := d.Set("NST", s)
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Response, err
 }
 
 func (d *Device) SetNetworkServiceTuneIn() error {
@@ -463,7 +580,7 @@ func (d *Device) SetNetworkFavorite(s string) (string, error) {
 } */
 
 func (d *Device) SelectNetworkListItem(i int) error {
-	line := fmt.Sprintf("I%5d", i)
+	line := fmt.Sprintf("I%05d", i)
 	err := d.SetOnly("NLS", line)
 	return err
 }
@@ -475,6 +592,7 @@ type NetworkMenuStatus struct {
 	SeekTime           bool
 	ElapsedTimeMode    int
 	Service            string
+	ServiceName        string
 }
 
 func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
@@ -506,5 +624,7 @@ func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
 		nms.ElapsedTimeMode = 0
 	}
 	nms.Service = msg.Response[7:]
+	nms.ServiceName, _ = NetSourceToName[NetSource(strings.ToUpper(nms.Service))]
+
 	return &nms, nil
 }

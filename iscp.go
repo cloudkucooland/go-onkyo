@@ -21,7 +21,7 @@ type Message struct {
 func (msg *Message) Parse(rawP *[]byte) error {
 	raw := *rawP
 	if string(raw[:4]) != "ISCP" {
-		return fmt.Errorf("This is not EISCP message")
+		return fmt.Errorf("This is not an EISCP message: %s", string(*rawP))
 	}
 	msg.headerSize = binary.BigEndian.Uint32(raw[4:8])
 	if msg.headerSize != 16 {
