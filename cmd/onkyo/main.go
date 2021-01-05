@@ -102,6 +102,12 @@ func main() {
 		case "temp":
 			temp, _ := dev.GetTempData()
 			fmt.Printf("temp: %s\n", temp)
+		case "nms":
+			nms, err := dev.GetNetworkMenuStatus()
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("%+v\n", nms)
 		case "test":
 			fwv, _ := dev.GetFirmwareVersion()
 			fmt.Printf("firmware version: %s\n", fwv)
@@ -166,17 +172,17 @@ func main() {
 			}
 			fmt.Println(msg)
 		case "netsrc": // hangs
-			msg, err := dev.SetNetworkService(*value)
+			err := dev.SetNetworkService(*value)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println(msg)
-		case "netfav": // hangs
-			msg, err := dev.SetNetworkFavorite(*value)
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println(msg)
+			fmt.Println("set")
+		/* case "netfav": // hangs
+		msg, err := dev.SetNetworkFavorite(*value)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(msg) */
 		case "nja": // turn on/off the network art -- saves bandwidth in my config
 			s, err := strconv.ParseBool(*value)
 			if err != nil {

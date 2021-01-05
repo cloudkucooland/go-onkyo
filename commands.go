@@ -321,15 +321,15 @@ func (d *Device) SetNetworkJacketArt(s bool) (string, error) {
 }
 
 type NLT struct {
-	ServiceType string // 2 - hex -- lookup table // 00 : DLNA, 01 : Favorite, 02 : vTuner, 03 : SiriusXM, 04 : Pandora, 05 : Rhapsody, 06 : Last.fm, 07 : Napster, 08 : Slacker, 09 : Mediafly, 0A : Spotify, 0B : AUPEO!, 0C : radiko, 0D : e-onkyo, 0E : TuneIn Radio, 0F : MP3tunes, 10 : Simfy, 11:Home Media, 12:Deezer, 13:iHeartRadio, F0 : USB Front, F1 : USB Rear, F2 : Internet Radio, F3 : NET, FF : None
+	ServiceType NetSource
 	UIType      string // 1 - int // 0 : List, 1 : Menu, 2 : Playback, 3 : Popup, 4 : Keyboard, 5 : Menu
 	LayerType   string // 1 - int // 0 : NET TOP, 1 : Service Top,DLNA/USB/iPod Top, 2 : under 2nd Layer
 	CurrentPos  string // 4 - hex
 	NumItems    string // 4 - hex
 	NumLayers   string // 2 - hex
 	Reserved    string // 2 - unused
-	IconL       string // 2 -- hex -- lookup table // 00 : DLNA, 01 : Favorite, 02 : vTuner, 03 : SiriusXM, 04 : Pandora, 05 : Rhapsody, 06 : Last.fm, 07 : Napster, 08 : Slacker, 09 : Mediafly, 0A : Spotify, 0B : AUPEO!, 0C : radiko, 0D : e-onkyo, 0E : TuneIn Radio, 0F : MP3tunes, 10 : Simfy, 11:Home Media, 12:Deezer, 13:iHeartRadio, F0 : USB Front, F1 : USB Rear, F2 : Internet Radio, F3 : NET, FF : None
-	IconR       string // 2 -- hex -- lookup table // 00 : DLNA, 01 : Favorite, 02 : vTuner, 03 : SiriusXM, 04 : Pandora, 05 : Rhapsody, 06 : Last.fm, 07 : Napster, 08 : Slacker, 09 : Mediafly, 0A : Spotify, 0B : AUPEO!, 0C : radiko, 0D : e-onkyo, 0E : TuneIn Radio, 0F : MP3tunes, 10 : Simfy, 11:Home Media, 12:Deezer, 13:iHeartRadio, FF : None
+	IconL       NetSource
+	IconR       NetSource
 	Status      string // 2 -- hex -- lookup table // 00 : None, 01 : Connecting, 02 : Acquiring License, 03 : Buffering 04 : Cannot Play, 05 : Searching, 06 : Profile update, 07 : Operation disabled 08 : Server Start-up, 09 : Song rated as Favorite, 0A : Song banned from station, 0B : Authentication Failed, 0C : Spotify Paused(max 1 device), 0D : Track Not Available, 0E : Cannot Skip
 	Title       string // the rest
 }
@@ -340,14 +340,14 @@ func (d *Device) GetNetworkTitle() (*NLT, error) {
 		return nil, err
 	}
 	var nlt NLT
-	nlt.ServiceType = msg.Response[0:2]
+	nlt.ServiceType = NetSource(msg.Response[0:2])
 	nlt.UIType = msg.Response[2:3]
 	nlt.LayerType = msg.Response[3:4]
 	nlt.CurrentPos = msg.Response[4:8]
 	nlt.NumItems = msg.Response[8:12]
 	nlt.NumLayers = msg.Response[12:14]
-	nlt.IconL = msg.Response[16:18]
-	nlt.IconR = msg.Response[18:20]
+	nlt.IconL = NetSource(msg.Response[16:18])
+	nlt.IconR = NetSource(msg.Response[18:20])
 	nlt.Status = msg.Response[20:22]
 	nlt.Title = msg.Response[22:len(msg.Response)]
 	return &nlt, nil
@@ -443,15 +443,16 @@ func (d *Device) GetNetworkPlayStatus() (string, error) {
 	return msg.Response, nil
 }
 
-func (d *Device) SetNetworkService(s string) (string, error) {
-	msg, err := d.Set("NSV", s)
-	if err != nil {
-		return "", err
-	}
-	return msg.Response, nil
+func (d *Device) SetNetworkServiceTuneIn() error {
+	return d.SetNetworkService(NetSrcTuneIn + "0")
 }
 
-// this is what I'm after, being able to adjust the steam to which I'm listening by favorite number
+func (d *Device) SetNetworkService(s string) error {
+	err := d.SetOnly("NSV", s) // NSV hangs on reads
+	return err
+}
+
+/* this is what I'm after, being able to adjust the steam to which I'm listening by favorite number
 func (d *Device) SetNetworkFavorite(s string) (string, error) {
 	service := fmt.Sprintf("010%s", s)
 	msg, err := d.Set("NSV", service)
@@ -459,4 +460,51 @@ func (d *Device) SetNetworkFavorite(s string) (string, error) {
 		return "", err
 	}
 	return msg.Response, nil
+} */
+
+func (d *Device) SelectNetworkListItem(i int) error {
+	line := fmt.Sprintf("I%5d", i)
+	err := d.SetOnly("NLS", line)
+	return err
+}
+
+type NetworkMenuStatus struct {
+	Menu               bool
+	PositiveButtonIcon bool
+	NegativeButtonIcon bool
+	SeekTime           bool
+	ElapsedTimeMode    int
+	Service            string
+}
+
+func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
+	msg, err := d.Set("NMS", "QSTN")
+	if err != nil {
+		return nil, err
+	}
+
+	// Mxxxxx20e
+	var nms NetworkMenuStatus
+	if msg.Response[0:1] == "M" {
+		nms.Menu = true
+	}
+	if msg.Response[1:3] == "F1" {
+		nms.PositiveButtonIcon = true
+	}
+	if msg.Response[3:5] == "F2" {
+		nms.NegativeButtonIcon = true
+	}
+	if msg.Response[5:6] == "S" {
+		nms.SeekTime = true
+	}
+	switch msg.Response[6:7] {
+	case "1":
+		nms.ElapsedTimeMode = 1
+	case "2":
+		nms.ElapsedTimeMode = 2
+	default:
+		nms.ElapsedTimeMode = 0
+	}
+	nms.Service = msg.Response[7:]
+	return &nms, nil
 }
