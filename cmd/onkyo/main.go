@@ -89,13 +89,24 @@ func main() {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Printf("now playing: %+v\n", nlt)
+			fmt.Printf("network title info: %+v\n", nlt)
 			list, err := dev.GetNetworkListInfo()
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
 			fmt.Printf("list: %+v\n", list)
+			nms, err := dev.GetNetworkMenuStatus()
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("menu status: %+v\n", nms)
+			// works with some stations, but not all -- figure out why
+			nti, err := dev.GetNetworkTitleName()
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("title: %s\n", nti)
 		case "preset":
 			p, _ := dev.GetPreset()
 			fmt.Printf("preset: %s\n", p)
@@ -132,12 +143,14 @@ func main() {
 			s, _ := dev.GetListeningMode() // works
 			fmt.Printf("Listening Mode: %s\n", s)
 		default:
-			resp, err := dev.Set(*command, "QSTN")
+			mm, err := dev.SetGetAll(*command, "QSTN")
 			if err != nil {
 				fmt.Println(err.Error())
 				return
 			}
-			fmt.Printf("reply: %s\n", resp.Response)
+			for _, v := range mm.Messages {
+				fmt.Printf("reply: [%s] %s\n", v.Command, v.Response)
+			}
 		}
 	} else {
 		switch *command {
@@ -152,7 +165,11 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println(dev.SetVolume(uint8(v)))
+			vol, err := dev.SetVolume(uint8(v))
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("new volume: %d\n", vol)
 		case "source":
 			src, ok := eiscp.SourceByName[*value]
 			if !ok {
@@ -193,12 +210,24 @@ func main() {
 				panic(err)
 			}
 			fmt.Println(state)
-		default:
-			msg, err := dev.Set(*command, *value)
+		case "select":
+			i, err := strconv.Atoi(*value)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("reply: %s\n", msg.Response)
+			err = dev.SelectNetworkListItem(i)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("selected: I%05d\n", i)
+		default:
+			mm, err := dev.SetGetAll(*command, *value)
+			if err != nil {
+				panic(err)
+			}
+			for _, v := range mm.Messages {
+				fmt.Printf("reply: [%s] %s\n", v.Command, v.Response)
+			}
 		}
 	}
 }

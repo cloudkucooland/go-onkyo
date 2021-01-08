@@ -3,7 +3,7 @@ package eiscp
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	// "fmt"
 )
 
 // Message eISCP
@@ -12,38 +12,47 @@ type Message struct {
 	Destination byte
 	headerSize  uint32
 	dataSize    uint32
-	ISCP        []byte
+	raw         []byte
 	Command     string
 	Response    string
+	Valid       bool
+}
+
+type MultiMessage struct {
+	Messages []*Message
 }
 
 // Parse raw message from network into an eISCP message
-func (msg *Message) Parse(rawP *[]byte) error {
+func (msg *Message) Parse(rawP *[]byte) {
 	raw := *rawP
 	if string(raw[:4]) != "ISCP" {
-		return fmt.Errorf("This is not an EISCP message: %s", string(*rawP))
+		// return fmt.Errorf("this is not an EISCP message: %s", string(*rawP))
+		msg.Valid = false
+		return
 	}
 	msg.headerSize = binary.BigEndian.Uint32(raw[4:8])
 	if msg.headerSize != 16 {
-		return fmt.Errorf("Invalid header size")
+		// return fmt.Errorf("invalid header size")
+		msg.Valid = false
+		return
 	}
 
 	msg.dataSize = binary.BigEndian.Uint32(raw[8:12])
 	msg.Version = raw[12]
 	if msg.Version != 1 {
-		return fmt.Errorf("unknown version: %d", msg.Version)
+		msg.Valid = false
+		return
 	}
 
 	// nothing should read this now, use msg.Response
-	msg.ISCP = raw[16 : 16+msg.dataSize]
-	if string(msg.ISCP[3:]) == "N/A" {
-		return fmt.Errorf("Not available")
-	}
+	// msg.Raw = raw[16 : 16+msg.dataSize]
+	/* if string(msg.Raw[3:]) == "N/A" {
+		return fmt.Errorf("not available")
+	} */
 
 	msg.Command = string(raw[18:21])
 	msg.Response = string(raw[21 : 16+msg.dataSize-3])
-	// fmt.Printf("iscp.go: parsed: %s: %s\n", msg.Command, msg.Response)
-	return nil
+	msg.Valid = true
 }
 
 // BuildISCP - Build ISCP message
@@ -51,7 +60,7 @@ func (msg *Message) BuildISCP() []byte {
 	buffer := bytes.Buffer{}
 	buffer.WriteRune('!')             // Start character
 	buffer.WriteByte(msg.Destination) // Receiver
-	buffer.Write(msg.ISCP)
+	buffer.Write(msg.raw)
 	buffer.Write([]byte{0x0D})
 	return buffer.Bytes()
 }

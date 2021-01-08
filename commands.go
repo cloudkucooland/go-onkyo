@@ -10,17 +10,17 @@ import (
 
 // SetSource - Set Onkyo source channel by friendly name
 func (d *Device) SetSource(source Source) (*Message, error) {
-	return d.Set("SLI", string(source))
+	return d.SetGetOne("SLI", string(source))
 }
 
 // SetSourceByCode - Set Onkyo source channel by code
 func (d *Device) SetSourceByCode(code int) (*Message, error) {
-	return d.Set("SLI", fmt.Sprintf("%02X", code))
+	return d.SetGetOne("SLI", fmt.Sprintf("%02X", code))
 }
 
 // GetSource - Get Onkyo source channel. Use SourceToName to get readable name
 func (d *Device) GetSource() (Source, error) {
-	msg, err := d.Set("SLI", "QSTN")
+	msg, err := d.SetGetOne("SLI", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -30,14 +30,14 @@ func (d *Device) GetSource() (Source, error) {
 // SetPower - turn on/off Onkyo device
 func (d *Device) SetPower(on bool) (*Message, error) {
 	if on {
-		return d.Set("PWR", "01")
+		return d.SetGetOne("PWR", "01")
 	}
-	return d.Set("PWR", "00")
+	return d.SetGetOne("PWR", "00")
 }
 
 // GetPower - get Onkyo power state
 func (d *Device) GetPower() (bool, error) {
-	msg, err := d.Set("PWR", "QSTN")
+	msg, err := d.SetGetOne("PWR", "QSTN")
 	if err != nil {
 		return false, err
 	}
@@ -45,14 +45,18 @@ func (d *Device) GetPower() (bool, error) {
 }
 
 // SetVolume - set master volume in Onkyo receiver
-func (d *Device) SetVolume(level uint8) (*Message, error) {
-	msg, err := d.Set("MVL", strings.ToUpper(hex.EncodeToString([]byte{level})))
-	return msg, err
+func (d *Device) SetVolume(level uint8) (uint8, error) {
+	msg, err := d.SetGetOne("MVL", strings.ToUpper(hex.EncodeToString([]byte{level})))
+	if err != nil {
+		return uint8(0), err
+	}
+	vol, err := strconv.ParseUint(msg.Response, 16, 8)
+	return uint8(vol), err
 }
 
 // GetVolume - get master volume in Onkyo receiver
 func (d *Device) GetVolume() (uint8, error) {
-	msg, err := d.Set("MVL", "QSTN")
+	msg, err := d.SetGetOne("MVL", "QSTN")
 	if err != nil {
 		return 0, err
 	}
@@ -60,28 +64,28 @@ func (d *Device) GetVolume() (uint8, error) {
 	return uint8(vol), err
 }
 
-func (d *Device) GetMute() (*Message, error) {
-	msg, err := d.Set("AMT", "QSTN")
+func (d *Device) GetMute() (bool, error) {
+	msg, err := d.SetGetOne("AMT", "QSTN")
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return msg, err
+	return msg.Response == "01", err
 }
 
-func (d *Device) SetMute(mute bool) (*Message, error) {
+func (d *Device) SetMute(mute bool) (bool, error) {
 	state := "00"
 	if mute {
 		state = "01"
 	}
-	msg, err := d.Set("AMT", state)
+	msg, err := d.SetGetOne("AMT", state)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return msg, err
+	return msg.Response == "01", err
 }
 
 func (d *Device) GetDetails() (*NRI, error) {
-	msg, err := d.Set("NRI", "QSTN")
+	msg, err := d.SetGetOne("NRI", "QSTN")
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +97,7 @@ func (d *Device) GetDetails() (*NRI, error) {
 }
 
 func (d *Device) GetDisplayMode() (string, error) {
-	msg, err := d.Set("DIF", "QSTN")
+	msg, err := d.SetGetOne("DIF", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +105,7 @@ func (d *Device) GetDisplayMode() (string, error) {
 }
 
 func (d *Device) GetAudioInformation() (string, error) {
-	msg, err := d.Set("IFA", "QSTN")
+	msg, err := d.SetGetOne("IFA", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -109,7 +113,7 @@ func (d *Device) GetAudioInformation() (string, error) {
 }
 
 func (d *Device) GetDimmer() (string, error) {
-	msg, err := d.Set("DIM", "QSTN")
+	msg, err := d.SetGetOne("DIM", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +121,7 @@ func (d *Device) GetDimmer() (string, error) {
 }
 
 func (d *Device) GetVideoInformation() (string, error) {
-	msg, err := d.Set("IFV", "QSTN")
+	msg, err := d.SetGetOne("IFV", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -126,30 +130,15 @@ func (d *Device) GetVideoInformation() (string, error) {
 
 // hangs
 func (d *Device) GetFLInformation() (string, error) {
-	msg, err := d.Set("FLD", "QSTN")
+	msg, err := d.SetGetOne("FLD", "QSTN")
 	if err != nil {
 		return "", err
 	}
 	return msg.Response, nil
 }
 
-var resolutions = map[string]string{
-	"00": "through",
-	"01": "auto",
-	"02": "480p",
-	"03": "720p",
-	"04": "1080i",
-	"05": "1080p",
-	"06": "source",
-	"07": "[1080p, 24fs]",
-	"08": "4k-upscaling",
-	"13": "1680x720p",
-	"15": "2560x1080p",
-}
-
-// hangs
 func (d *Device) GetMonitorResolution() (string, error) {
-	msg, err := d.Set("RES", "QSTN")
+	msg, err := d.SetGetOne("RES", "QSTN")
 	if err != nil {
 		return "unknown", err
 	}
@@ -162,7 +151,7 @@ func (d *Device) GetMonitorResolution() (string, error) {
 
 // hangs
 func (d *Device) GetHDMIOut() (string, error) {
-	msg, err := d.Set("HOI", "QSTN")
+	msg, err := d.SetGetOne("HOI", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -171,26 +160,16 @@ func (d *Device) GetHDMIOut() (string, error) {
 
 // hangs
 func (d *Device) GetISF() (string, error) {
-	msg, err := d.Set("ISF", "QSTN")
+	msg, err := d.SetGetOne("ISF", "QSTN")
 	if err != nil {
 		return "", err
 	}
 	return msg.Response, nil
 }
 
-var vwm = map[string]string{
-	"00": "auto",
-	"01": "4-3",
-	"02": "full",
-	"03": "zoom",
-	"04": "wide zoom",
-	"05": "smart zoom",
-	"UP": "up",
-}
-
 // hangs
 func (d *Device) GetWideVideoMode() (string, error) {
-	msg, err := d.Set("VWM", "QSTN")
+	msg, err := d.SetGetOne("VWM", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -201,90 +180,8 @@ func (d *Device) GetWideVideoMode() (string, error) {
 	return mode, nil
 }
 
-var listeningmodes = map[string]string{
-	"00":     "stereo",
-	"01":     "direct",
-	"02":     "surround",
-	"03":     "[film, game-rpg]",
-	"04":     "thx",
-	"05":     "[action, game-action]",
-	"06":     "[musical, game-rock]",
-	"07":     "mono-movie",
-	"08":     "orchestra",
-	"09":     "unplugged",
-	"0A":     "studio-mix",
-	"0B":     "tv-logic",
-	"0C":     "all-ch-stereo",
-	"0D":     "theater-dimensional",
-	"0E":     "enhanced-7, enhance, game-sports",
-	"0F":     "mono",
-	"11":     "pure-audio",
-	"12":     "multiplex",
-	"13":     "full-mono",
-	"14":     "[dolby-virtual, surround-enhanced]",
-	"15":     "dts-surround-sensation",
-	"16":     "audyssey-dsx",
-	"1F":     "whole house",
-	"23":     "stage",
-	"25":     "action",
-	"26":     "music",
-	"2E":     "sports",
-	"40":     "straight-decode",
-	"41":     "dolby-ex",
-	"42":     "thx-cinema",
-	"43":     "thx-surround-ex",
-	"44":     "thx-music",
-	"45":     "thx-games",
-	"50":     "[thx-u2, s1, i, s-cinema, cinema2]",
-	"51":     "[thx-musicmode, thx-u2, s2, i, s-music]",
-	"52":     "[thx-games, thx-u2, s2, i, s-games]",
-	"80":     "[plii, pliix-movie, dolby-atmos, dolby-surround]",
-	"81":     "[plii, pliix-music]",
-	"82":     "[neo-6-cinema, neo-x-cinema, dts-x, neural-x]",
-	"83":     "[neo-6-music, neo-x-music]",
-	"84":     "[plii, pliix-thx-cinema, dolby-surround-thx-cinema]",
-	"85":     "[neo-6, neo-x-thx-cinema, dts-neural-x-thx-cinema]",
-	"86":     "[plii, pliix-game]",
-	"87":     "neural-surr",
-	"88":     "[neural-thx, nexural-surround]",
-	"89":     "[plii, pliix-thx-games, dolby-surround-thx-games]",
-	"8A":     "[neo-6, neo-x-thx-games, dts-neural-x-thx-games]",
-	"8B":     "[plii, pliix-thx-music, dolby-surround-thx-music]",
-	"8C":     "[neo-6, neo-x-thx-music, dts-neural-x-thx-music]",
-	"8D":     "neural-thx-cinema",
-	"8E":     "neural-thx-music",
-	"8F":     "neural-thx-games",
-	"90":     "pliiz-height",
-	"91":     "neo-6-cinema-dts-surround-sensation",
-	"92":     "neo-6-music-dts-surround-sensation",
-	"93":     "neural-digital-music",
-	"94":     "pliiz-height-thx-cinema",
-	"95":     "pliiz-height-thx-music",
-	"96":     "pliiz-height-thx-games",
-	"97":     "[pliiz-height-thx-u2, s2-cinema]",
-	"98":     "[pliiz-height-thx-u2, s2-music]",
-	"99":     "[pliiz-height-thx-u2, s2-games]",
-	"9A":     "neo-x-game",
-	"A0":     "[pliix, plii-movie-audyssey-dsx]",
-	"A1":     "[pliix, plii-music-audyssey-dsx]",
-	"A2":     "[pliix, plii-game-audyssey-dsx]",
-	"A3":     "neo-6-cinema-audyssey-dsx",
-	"A4":     "neo-6-music-audyssey-dsx",
-	"A5":     "neural-surround-audyssey-dsx",
-	"A6":     "neural-digital-music-audyssey-dsx",
-	"A7":     "dolby-ex-audyssey-dsx",
-	"FF":     "auto-surround",
-	"MOVIE":  "movie",
-	"MUSIC":  "music",
-	"GAME":   "game",
-	"THX":    "thx",
-	"AUTO":   "auto",
-	"SURR":   "surr",
-	"STEREO": "stereo",
-}
-
 func (d *Device) GetListeningMode() (string, error) {
-	msg, err := d.Set("LMD", "QSTN")
+	msg, err := d.SetGetOne("LMD", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -296,7 +193,7 @@ func (d *Device) GetListeningMode() (string, error) {
 }
 
 func (d *Device) GetNetworkJacketArt() (string, error) {
-	msg, err := d.Set("NJA", "QSTN")
+	msg, err := d.SetGetOne("NJA", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -305,15 +202,15 @@ func (d *Device) GetNetworkJacketArt() (string, error) {
 
 func (d *Device) SetNetworkJacketArt(s bool) (string, error) {
 	state := "DIS"
-	if s == true {
+	if s {
 		state = "ENA"
 	}
-	msg, err := d.Set("NJA", state)
+	err := d.SetOnly("NJA", state)
 	if err != nil {
 		return "", err
 	}
 
-	msg, err = d.Set("NJA", "QSTN")
+	msg, err := d.SetGetOne("NJA", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -335,7 +232,7 @@ type NLT struct {
 }
 
 func (d *Device) GetNetworkTitle() (*NLT, error) {
-	msg, err := d.Set("NLT", "QSTN")
+	msg, err := d.SetGetOne("NLT", "QSTN")
 	if err != nil {
 		return nil, err
 	}
@@ -353,6 +250,14 @@ func (d *Device) GetNetworkTitle() (*NLT, error) {
 	return &nlt, nil
 }
 
+func (d *Device) GetNetworkTitleName() (string, error) {
+	msg, err := d.SetGetOne("NTI", "QSTN")
+	if err != nil {
+		return "", err
+	}
+	return msg.Response, nil
+}
+
 type NLS struct {
 	InfoType string // (A : ASCII letter, C : Cursor Info, U : Unicode letter)
 	LineInfo string // (0-9 : 1st to 10th Line)
@@ -361,7 +266,7 @@ type NLS struct {
 }
 
 func (d *Device) GetNetworkListInfo() (*NLS, error) {
-	msg, err := d.Set("NLS", "QSTN")
+	msg, err := d.SetGetOne("NLS", "QSTN")
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +280,7 @@ func (d *Device) GetNetworkListInfo() (*NLS, error) {
 
 // hangs
 func (d *Device) GetNetworkInfo() (string, error) {
-	msg, err := d.Set("NLA", "L000100000000FF") // doesn't hang, but returns junk
+	msg, err := d.SetGetOne("NLA", "L000100000000FF") // doesn't hang, but returns junk
 	if err != nil {
 		return "", err
 	}
@@ -383,7 +288,7 @@ func (d *Device) GetNetworkInfo() (string, error) {
 }
 
 func (d *Device) GetFirmwareVersion() (string, error) {
-	msg, err := d.Set("FWV", "QSTN")
+	msg, err := d.SetGetOne("FWV", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -391,7 +296,7 @@ func (d *Device) GetFirmwareVersion() (string, error) {
 }
 
 func (d *Device) GetTempData() (string, error) {
-	msg, err := d.Set("TPD", "QSTN")
+	msg, err := d.SetGetOne("TPD", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -404,7 +309,7 @@ func (d *Device) GetTempData() (string, error) {
 
 // AM/FM tuner preset
 func (d *Device) GetPreset() (string, error) {
-	msg, err := d.Set("PRS", "QSTN")
+	msg, err := d.SetGetOne("PRS", "QSTN")
 	if err != nil {
 		return "", err
 	}
@@ -413,7 +318,7 @@ func (d *Device) GetPreset() (string, error) {
 
 // AM/FM tuner preset
 func (d *Device) SetPreset(p string) (string, error) {
-	msg, err := d.Set("PRS", p)
+	msg, err := d.SetGetOne("PRS", p)
 	if err != nil {
 		return "", err
 	}
@@ -421,8 +326,8 @@ func (d *Device) SetPreset(p string) (string, error) {
 }
 
 func (d *Device) SetNetworkPreset(p string) (string, error) {
-	// msg, err := d.Set("NPZ", p)
-	msg, err := d.Set("NPR", p)
+	// msg, err := d.SetGetOne("NPZ", p)
+	msg, err := d.SetGetOne("NPR", p)
 	if err != nil {
 		return "", err
 	}
@@ -436,7 +341,7 @@ type NetworkStatus struct {
 }
 
 func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
-	msg, err := d.Set("NDS", "QSTN")
+	msg, err := d.SetGetOne("NDS", "QSTN")
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +401,7 @@ type NetworkPlayStatus struct {
 }
 
 func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
-	msg, err := d.Set("NST", "QSTN")
+	msg, err := d.SetGetOne("NST", "QSTN")
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +458,7 @@ func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
 // r Repeat Status: "-": Off, "R": All, "F": Folder, "1": Repeat 1, "x": disable
 // s Shuffle Status: "-": Off, "S": All , "A": Album, "F": Folder, "x": disable
 func (d *Device) SetNetworkPlayStatus(s string) (string, error) {
-	msg, err := d.Set("NST", s)
+	msg, err := d.SetGetOne("NST", s)
 	if err != nil {
 		return "", err
 	}
@@ -572,7 +477,7 @@ func (d *Device) SetNetworkService(s string) error {
 /* this is what I'm after, being able to adjust the steam to which I'm listening by favorite number
 func (d *Device) SetNetworkFavorite(s string) (string, error) {
 	service := fmt.Sprintf("010%s", s)
-	msg, err := d.Set("NSV", service)
+	msg, err := d.SetGetOne("NSV", service)
 	if err != nil {
 		return "", err
 	}
@@ -596,7 +501,7 @@ type NetworkMenuStatus struct {
 }
 
 func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
-	msg, err := d.Set("NMS", "QSTN")
+	msg, err := d.SetGetOne("NMS", "QSTN")
 	if err != nil {
 		return nil, err
 	}
@@ -624,7 +529,7 @@ func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
 		nms.ElapsedTimeMode = 0
 	}
 	nms.Service = msg.Response[7:]
-	nms.ServiceName, _ = NetSourceToName[NetSource(strings.ToUpper(nms.Service))]
+	nms.ServiceName = NetSourceToName[NetSource(strings.ToUpper(nms.Service))]
 
 	return &nms, nil
 }

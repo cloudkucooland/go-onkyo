@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -21,7 +22,6 @@ type Device struct {
 	conn            net.Conn
 	destinationType DeviceType
 	version         byte
-	cache           map[string]string
 }
 
 // just use the NewReceiver shortcut
@@ -31,7 +31,6 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, e
 		destinationType: deviceType,
 		version:         iscpVersion,
 	}
-	d.cache = make(map[string]string)
 	err := d.Connect()
 	if err != nil {
 		return nil, err
@@ -77,7 +76,7 @@ func (d *Device) Connect() error {
 	return nil
 }
 
-func (d *Device) readResponse() (*Message, error) {
+func (d *Device) readSimple() (*Message, error) {
 	if d.conn == nil {
 		return nil, fmt.Errorf("not connected")
 	}
@@ -87,6 +86,9 @@ func (d *Device) readResponse() (*Message, error) {
 	raw := make([]byte, 0, bufsiz)
 	tmp := make([]byte, blocksize)
 	for {
+		d.conn.SetReadDeadline(time.Now().Add(time.Second * 3))
+		defer d.conn.SetDeadline(time.Time{})
+
 		n, err := d.conn.Read(tmp)
 		if err != nil && err != io.EOF {
 			fmt.Printf("cannot read data from device: %s", err.Error())
@@ -105,10 +107,57 @@ func (d *Device) readResponse() (*Message, error) {
 	}
 
 	var msg Message
-	if err := msg.Parse(&raw); err != nil {
-		return nil, err
+	msg.Parse(&raw)
+	if !msg.Valid {
+		return nil, fmt.Errorf("invalid EISCP message")
 	}
 	return &msg, nil
+}
+
+func (d *Device) readMulti(command string) (*MultiMessage, error) {
+	if d.conn == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	mm := MultiMessage{}
+	blocksize := 1024
+	bufsize := 20 * blocksize
+	for {
+		raw := make([]byte, 0, bufsize)
+		tmp := make([]byte, blocksize)
+		for {
+			d.conn.SetReadDeadline(time.Now().Add(time.Second * 10))
+			defer d.conn.SetDeadline(time.Time{})
+
+			n, err := d.conn.Read(tmp)
+			if err != nil && err != io.EOF && !strings.Contains(err.Error(), "i/o timeout") {
+				fmt.Printf("cannot read data from device: %s", err.Error())
+				return nil, err
+			} else if err != nil && strings.Contains(err.Error(), "i/o timeout") {
+				fmt.Println("[timeout], calling it good")
+				fmt.Printf("%+v", mm)
+				return &mm, nil
+			}
+			raw = append(raw, tmp[:n]...)
+			if err == io.EOF || n != blocksize {
+				break
+			}
+
+			// let NRI and others catch up
+			time.Sleep(time.Millisecond * 10)
+		}
+		var msg Message
+		msg.Parse(&raw)
+		if !msg.Valid {
+			return &mm, nil
+		}
+		// fmt.Printf("got message [%s]: [%s]\n", msg.Command, msg.Response)
+		mm.Messages = append(mm.Messages, &msg)
+		if msg.Command == command {
+			// fmt.Println("got original command, returning")
+			return &mm, nil
+		}
+	}
 }
 
 func (d *Device) writeCommand(command, arg string) error {
@@ -120,7 +169,7 @@ func (d *Device) writeCommand(command, arg string) error {
 	msg := Message{
 		Destination: byte(d.destinationType),
 		Version:     d.version,
-		ISCP:        []byte(command + arg),
+		raw:         []byte(command + arg),
 	}
 	req := msg.BuildEISCP()
 	// fmt.Printf("req: %+v %s\n", req, string(req))
@@ -129,39 +178,67 @@ func (d *Device) writeCommand(command, arg string) error {
 	return err
 }
 
-// Set is the primary interface to send commands to the device
-// only use this directly if a specific command is not already written
-func (d *Device) Set(command, arg string) (*Message, error) {
+// SetSingle sends a command which will only ever have a single-message response, multiple values are ignored.
+// It is better to use SetGetOne in most cases
+func (d *Device) setSingle(command, arg string) (*Message, error) {
 	err := d.writeCommand(command, arg)
 	if err != nil {
 		return nil, err
 	}
 
-	msg, err := d.readResponse()
+	pulls := 0
+	msg, err := d.readSimple()
 	if err != nil {
 		return nil, err
-	}
-	if msg == nil {
-		return nil, fmt.Errorf("unable to read response")
 	}
 
 	// the response given didn't answer the question we asked -- keep digging
 	for msg.Command != command {
+		// NLS and NLT are common up whenever something is playing
+		if msg.Command != "NLT" && msg.Command != "NLS" && msg.Command != "NTM" {
+			fmt.Printf("wrong response: [%s] / [%s] %s\n", command, msg.Command, msg.Response)
+			pulls++
+		}
+		if pulls > 5 {
+			return nil, fmt.Errorf("too many responses")
+		}
+
+		// try again
+		msg, err = d.readSimple()
 		if err != nil {
 			return nil, err
 		}
-		// store it, in case we want it later
-		d.cache[msg.Command] = msg.Response
-		// try again
-		msg, err = d.readResponse()
 	}
 	return msg, nil
 }
 
+// SetOnly sends a command and does not check for a response
 func (d *Device) SetOnly(command, arg string) error {
 	err := d.writeCommand(command, arg)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// Set sends a command and returns all responses
+func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
+	err := d.writeCommand(command, arg)
+	if err != nil {
+		return nil, err
+	}
+
+	mm, err := d.readMulti(command)
+	if err != nil {
+		return nil, err
+	}
+	return mm, nil
+}
+
+func (d *Device) SetGetOne(command, arg string) (*Message, error) {
+	mm, err := d.SetGetAll(command, arg)
+	if err != nil {
+		return nil, err
+	}
+	return mm.Messages[len(mm.Messages)-1], nil
 }
