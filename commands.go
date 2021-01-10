@@ -300,10 +300,10 @@ func (d *Device) GetTempData() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if msg == nil {
-		return "0", nil
-	}
 	vals := strings.Split(msg.Response, " ")
+    if len(vals) < 3 {
+        return "", fmt.Errorf("did not get temp response")
+    }
 	return vals[2], nil
 }
 

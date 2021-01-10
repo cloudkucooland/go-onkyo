@@ -240,5 +240,8 @@ func (d *Device) SetGetOne(command, arg string) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
+    if len(mm.Messages) == 0 {
+        return nil, fmt.Errorf("no reply")
+    }
 	return mm.Messages[len(mm.Messages)-1], nil
 }
