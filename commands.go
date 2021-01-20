@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+type Command struct {
+	Code  string
+	Value string
+}
+
 // SetSource - Set Onkyo source channel by friendly name
 func (d *Device) SetSource(source Source) (*Message, error) {
 	return d.SetGetOne("SLI", string(source))
@@ -301,9 +306,9 @@ func (d *Device) GetTempData() (string, error) {
 		return "", err
 	}
 	vals := strings.Split(msg.Response, " ")
-    if len(vals) < 3 {
-        return "", fmt.Errorf("did not get temp response")
-    }
+	if len(vals) < 3 {
+		return "", fmt.Errorf("did not get temp response")
+	}
 	return vals[2], nil
 }
 

@@ -19,33 +19,52 @@ const (
 // Device of Onkyo receiver
 type Device struct {
 	Host            string
+	persistent      bool
 	conn            net.Conn
 	destinationType DeviceType
 	version         byte
+	sender          chan Command
+	Responses       chan Message
 }
 
 // just use the NewReceiver shortcut
-func newDevice(host string, deviceType DeviceType, iscpVersion byte) (*Device, error) {
+func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent bool) (*Device, error) {
 	d := Device{
 		Host:            host,
 		destinationType: deviceType,
 		version:         iscpVersion,
+		persistent:      persistent,
 	}
 	err := d.Connect()
 	if err != nil {
 		return nil, err
 	}
+
+	if persistent {
+		d.sender = make(chan Command)
+		d.Responses = make(chan Message)
+
+		go func(dev Device) {
+			fmt.Println("starting persistent listener")
+			d.persistentListener()
+		}(d)
+	}
+
 	return &d, nil
 }
 
 // NewReceiver - sugar for NewDevice with Receiver as device type and version 1
 // host must be an IPv4 dotted-quad address... for now
-func NewReceiver(host string) (*Device, error) {
-	return newDevice(host, TypeReceiver, 0x01)
+func NewReceiver(host string, persistent bool) (*Device, error) {
+	return newDevice(host, TypeReceiver, 0x01, persistent)
 }
 
 // Close connection
 func (d *Device) Close() error {
+	if d.persistent {
+		fmt.Println("ignoring close on persistent channel")
+		return nil
+	}
 	if d.conn != nil {
 		err := d.conn.Close()
 		d.conn = nil
@@ -120,7 +139,7 @@ func (d *Device) readMulti(command string) (*MultiMessage, error) {
 	}
 
 	mm := MultiMessage{}
-	blocksize := 1024
+	blocksize := 1500 // should read interface for MTU
 	bufsize := 20 * blocksize
 	for {
 		raw := make([]byte, 0, bufsize)
@@ -134,8 +153,6 @@ func (d *Device) readMulti(command string) (*MultiMessage, error) {
 				fmt.Printf("cannot read data from device: %s", err.Error())
 				return nil, err
 			} else if err != nil && strings.Contains(err.Error(), "i/o timeout") {
-				fmt.Println("[timeout], calling it good")
-				fmt.Printf("%+v", mm)
 				return &mm, nil
 			}
 			raw = append(raw, tmp[:n]...)
@@ -160,7 +177,57 @@ func (d *Device) readMulti(command string) (*MultiMessage, error) {
 	}
 }
 
+func (d *Device) persistentListener() error {
+	if d.conn == nil {
+		return fmt.Errorf("not connected")
+	}
+
+	blocksize := 1500
+	block := make([]byte, blocksize)
+	bufsize := 5 * blocksize
+	buf := make([]byte, bufsize)
+	var bytesread int
+	var msg Message
+	for {
+		n, err := d.conn.Read(block)
+		if err != nil {
+			return err
+		}
+
+		// copy the read block into the buffer
+		for pos, b := range block[:n] {
+			buf[bytesread+pos] = b
+			// buf[pos] = b
+		}
+		// if it wasn't a full block, it must be complete, parse and send to channel
+		if n != blocksize {
+			bytesread = 0
+			msg.Parse(&buf)
+			if !msg.Valid {
+				fmt.Printf("invalid message: %+v", msg)
+			}
+			d.Responses <- msg
+			time.Sleep(time.Millisecond * 5)
+			continue
+		}
+		// otherwise keep reading
+		bytesread += n
+	}
+}
+
 func (d *Device) writeCommand(command, arg string) error {
+	c := Command{
+		Code:  command,
+		Value: arg,
+	}
+	if d.persistent {
+		d.sender <- c
+		return nil
+	}
+	return d.send(c)
+}
+
+func (d *Device) send(c Command) error {
 	if d.conn == nil {
 		// be smart and try to reconnect if possible
 		return fmt.Errorf("not connected")
@@ -169,11 +236,11 @@ func (d *Device) writeCommand(command, arg string) error {
 	msg := Message{
 		Destination: byte(d.destinationType),
 		Version:     d.version,
-		raw:         []byte(command + arg),
+		raw:         []byte(c.Code + c.Value),
 	}
-	req := msg.BuildEISCP()
-	// fmt.Printf("req: %+v %s\n", req, string(req))
-	_, err := d.conn.Write(req)
+	m := msg.BuildEISCP()
+	// fmt.Printf("m: %+v %s\n", m, string(m))
+	_, err := d.conn.Write(m)
 
 	return err
 }
@@ -240,8 +307,8 @@ func (d *Device) SetGetOne(command, arg string) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-    if len(mm.Messages) == 0 {
-        return nil, fmt.Errorf("no reply")
-    }
+	if len(mm.Messages) == 0 {
+		return nil, fmt.Errorf("no reply")
+	}
 	return mm.Messages[len(mm.Messages)-1], nil
 }
