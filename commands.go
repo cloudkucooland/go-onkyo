@@ -13,6 +13,10 @@ type Command struct {
 	Value string
 }
 
+// info here on how to control TV/DVD over cec
+// CDV & CTV commands, lots of args
+// https://github.com/ouija/onkyo-eiscp/blob/master/eiscp/commands.py
+
 // SetSource - Set Onkyo source channel by friendly name
 func (d *Device) SetSource(source Source) (*Message, error) {
 	return d.SetGetOne("SLI", string(source))

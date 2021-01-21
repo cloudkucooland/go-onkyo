@@ -8,16 +8,11 @@ import (
 )
 
 func main() {
-	hostP := flag.String("host", "", "Onkyo host")
+	host := flag.String("host", "192.168.1.152", "Onkyo host")
 	command := flag.String("command", "", "Param name")
 	value := flag.String("value", "", "Param value. Empty means only get")
 	listSources := flag.Bool("list-source", false, "List source")
 	flag.Parse()
-
-	host := *hostP
-	if host == "" {
-		host = "192.168.1.152"
-	}
 
 	if *listSources {
 		for k := range eiscp.SourceByName {
@@ -25,7 +20,7 @@ func main() {
 		}
 		return
 	}
-	dev, err := eiscp.NewReceiver(host)
+	dev, err := eiscp.NewReceiver(*host, false)
 	if err != nil {
 		panic(err)
 	}

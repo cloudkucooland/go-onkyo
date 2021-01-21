@@ -88,6 +88,7 @@ var SourceByName = map[string]Source{
 }
 
 // SourceToName - map source enum to channel name
+// XXX finish this
 var SourceToName = map[Source]string{
 	SrcVCR:           "vcr",
 	SrcCBL:           "cbl",

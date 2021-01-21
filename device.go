@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,13 +19,15 @@ const (
 
 // Device of Onkyo receiver
 type Device struct {
-	Host            string
-	persistent      bool
-	conn            net.Conn
-	destinationType DeviceType
-	version         byte
-	sender          chan Command
-	Responses       chan Message
+	Host             string
+	persistent       bool
+	conn             net.Conn
+	destinationType  DeviceType
+	version          byte
+	sender           chan Command
+	privateResponses chan Message
+	Responses        chan Message
+	mux              sync.Mutex
 }
 
 // just use the NewReceiver shortcut
@@ -42,11 +45,17 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent 
 
 	if persistent {
 		d.sender = make(chan Command)
-		d.Responses = make(chan Message)
+		d.Responses = make(chan Message, 50)
+		d.privateResponses = make(chan Message, 50)
 
 		go func(dev Device) {
 			fmt.Println("starting persistent listener")
 			d.persistentListener()
+		}(d)
+
+		go func(dev Device) {
+			fmt.Println("starting persistent sender")
+			d.persistentSender()
 		}(d)
 	}
 
@@ -95,45 +104,7 @@ func (d *Device) Connect() error {
 	return nil
 }
 
-func (d *Device) readSimple() (*Message, error) {
-	if d.conn == nil {
-		return nil, fmt.Errorf("not connected")
-	}
-
-	blocksize := 1024
-	bufsiz := 20 * blocksize // NRI needs 9k on my NR-686
-	raw := make([]byte, 0, bufsiz)
-	tmp := make([]byte, blocksize)
-	for {
-		d.conn.SetReadDeadline(time.Now().Add(time.Second * 3))
-		defer d.conn.SetDeadline(time.Time{})
-
-		n, err := d.conn.Read(tmp)
-		if err != nil && err != io.EOF {
-			fmt.Printf("cannot read data from device: %s", err.Error())
-			return nil, err
-		}
-
-		// fmt.Printf("read %d bytes: %s\n", n, string(tmp))
-		raw = append(raw, tmp[:n]...)
-
-		// saw EOF or short block, must be done
-		if err == io.EOF || n != blocksize {
-			break
-		}
-		// NRI needs this... *facepalm*
-		time.Sleep(time.Millisecond * 10)
-	}
-
-	var msg Message
-	msg.Parse(&raw)
-	if !msg.Valid {
-		return nil, fmt.Errorf("invalid EISCP message")
-	}
-	return &msg, nil
-}
-
-func (d *Device) readMulti(command string) (*MultiMessage, error) {
+func (d *Device) read(command string) (*MultiMessage, error) {
 	if d.conn == nil {
 		return nil, fmt.Errorf("not connected")
 	}
@@ -182,9 +153,9 @@ func (d *Device) persistentListener() error {
 		return fmt.Errorf("not connected")
 	}
 
-	blocksize := 1500
+	blocksize := 1024 // get interface MTU
 	block := make([]byte, blocksize)
-	bufsize := 5 * blocksize
+	bufsize := 40 * blocksize
 	buf := make([]byte, bufsize)
 	var bytesread int
 	var msg Message
@@ -197,22 +168,37 @@ func (d *Device) persistentListener() error {
 		// copy the read block into the buffer
 		for pos, b := range block[:n] {
 			buf[bytesread+pos] = b
-			// buf[pos] = b
 		}
+
 		// if it wasn't a full block, it must be complete, parse and send to channel
 		if n != blocksize {
 			bytesread = 0
 			msg.Parse(&buf)
 			if !msg.Valid {
-				fmt.Printf("invalid message: %+v", msg)
+				fmt.Printf("invalid message: %+v\n", msg)
 			}
 			d.Responses <- msg
-			time.Sleep(time.Millisecond * 5)
+			d.privateResponses <- msg
+			time.Sleep(time.Millisecond * 10)
 			continue
 		}
 		// otherwise keep reading
 		bytesread += n
+		time.Sleep(time.Millisecond * 10)
 	}
+	return nil
+}
+
+func (d *Device) persistentSender() error {
+	if d.conn == nil {
+		return fmt.Errorf("not connected")
+	}
+
+	for cmd := range d.sender {
+		// fmt.Printf("persistentSender sending: %+v\n", cmd)
+		d.send(cmd)
+	}
+	return nil
 }
 
 func (d *Device) writeCommand(command, arg string) error {
@@ -245,42 +231,11 @@ func (d *Device) send(c Command) error {
 	return err
 }
 
-// SetSingle sends a command which will only ever have a single-message response, multiple values are ignored.
-// It is better to use SetGetOne in most cases
-func (d *Device) setSingle(command, arg string) (*Message, error) {
-	err := d.writeCommand(command, arg)
-	if err != nil {
-		return nil, err
-	}
-
-	pulls := 0
-	msg, err := d.readSimple()
-	if err != nil {
-		return nil, err
-	}
-
-	// the response given didn't answer the question we asked -- keep digging
-	for msg.Command != command {
-		// NLS and NLT are common up whenever something is playing
-		if msg.Command != "NLT" && msg.Command != "NLS" && msg.Command != "NTM" {
-			fmt.Printf("wrong response: [%s] / [%s] %s\n", command, msg.Command, msg.Response)
-			pulls++
-		}
-		if pulls > 5 {
-			return nil, fmt.Errorf("too many responses")
-		}
-
-		// try again
-		msg, err = d.readSimple()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return msg, nil
-}
-
 // SetOnly sends a command and does not check for a response
 func (d *Device) SetOnly(command, arg string) error {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+
 	err := d.writeCommand(command, arg)
 	if err != nil {
 		return err
@@ -290,12 +245,33 @@ func (d *Device) SetOnly(command, arg string) error {
 
 // Set sends a command and returns all responses
 func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+
 	err := d.writeCommand(command, arg)
 	if err != nil {
 		return nil, err
 	}
 
-	mm, err := d.readMulti(command)
+	if d.persistent {
+		var pmm MultiMessage
+		for {
+			select {
+			case msg := <-d.privateResponses:
+				// fmt.Printf("SetGetAll: %+v\n", msg)
+				pmm.Messages = append(pmm.Messages, &msg)
+				if msg.Command == command {
+					// fmt.Printf("got answer: %+v\n", msg)
+					return &pmm, nil
+				}
+			case <-time.After(time.Second * 5):
+				// fmt.Println("timeout reached")
+				return &pmm, nil
+			}
+		}
+	}
+
+	mm, err := d.read(command)
 	if err != nil {
 		return nil, err
 	}
@@ -303,6 +279,7 @@ func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
 }
 
 func (d *Device) SetGetOne(command, arg string) (*Message, error) {
+	// SetGetAll does the locking
 	mm, err := d.SetGetAll(command, arg)
 	if err != nil {
 		return nil, err
@@ -310,5 +287,6 @@ func (d *Device) SetGetOne(command, arg string) (*Message, error) {
 	if len(mm.Messages) == 0 {
 		return nil, fmt.Errorf("no reply")
 	}
+	// fmt.Printf("SetGetOne: %+v\n", mm.Messages[len(mm.Messages)-1])
 	return mm.Messages[len(mm.Messages)-1], nil
 }

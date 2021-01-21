@@ -8,14 +8,14 @@ import (
 
 // Message eISCP
 type Message struct {
-	Version     byte
-	Destination byte
-	headerSize  uint32
-	dataSize    uint32
-	raw         []byte
-	Command     string
-	Response    string
-	Valid       bool
+	Version     byte   // always the same
+	Destination byte   // always the same
+	headerSize  uint32 // always the same
+	dataSize    uint32 // does this need to be here now? once parsed it is never touched again
+	raw         []byte // used for sending
+	Command     string // verify you've got the right Command
+	Response    string // the response value
+	Valid       bool   // if the packet was able to be parsed
 }
 
 type MultiMessage struct {
@@ -43,12 +43,6 @@ func (msg *Message) Parse(rawP *[]byte) {
 		msg.Valid = false
 		return
 	}
-
-	// nothing should read this now, use msg.Response
-	// msg.Raw = raw[16 : 16+msg.dataSize]
-	/* if string(msg.Raw[3:]) == "N/A" {
-		return fmt.Errorf("not available")
-	} */
 
 	msg.Command = string(raw[18:21])
 	msg.Response = string(raw[21 : 16+msg.dataSize-3])
