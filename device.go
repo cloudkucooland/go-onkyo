@@ -21,7 +21,7 @@ const (
 type Device struct {
 	Host             string
 	persistent       bool
-	conn             net.Conn
+	conn             *net.TCPConn
 	destinationType  DeviceType
 	version          byte
 	sender           chan Command
@@ -38,6 +38,7 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent 
 		version:         iscpVersion,
 		persistent:      persistent,
 	}
+
 	err := d.Connect()
 	if err != nil {
 		return nil, err
@@ -49,12 +50,10 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent 
 		d.privateResponses = make(chan Message, 50)
 
 		go func(dev Device) {
-			fmt.Println("starting persistent listener")
 			d.persistentListener()
 		}(d)
 
 		go func(dev Device) {
-			fmt.Println("starting persistent sender")
 			d.persistentSender()
 		}(d)
 	}
@@ -63,19 +62,19 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent 
 }
 
 // NewReceiver - sugar for NewDevice with Receiver as device type and version 1
-// host must be an IPv4 dotted-quad address... for now
 func NewReceiver(host string, persistent bool) (*Device, error) {
 	return newDevice(host, TypeReceiver, 0x01, persistent)
 }
 
 // Close connection
 func (d *Device) Close() error {
-	if d.persistent {
-		fmt.Println("ignoring close on persistent channel")
-		return nil
-	}
 	if d.conn != nil {
+		// fmt.Println("closing connection")
+		d.conn.SetLinger(0)
 		err := d.conn.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 		d.conn = nil
 		return err
 	}
@@ -95,7 +94,7 @@ func (d *Device) Connect() error {
 		Port: 60128,
 	}
 
-	conn, err := net.DialTCP("tcp4", nil, &r)
+	conn, err := net.DialTCP("tcp", nil, &r)
 	d.conn = conn
 	if err != nil {
 		fmt.Println(err.Error())
@@ -162,7 +161,16 @@ func (d *Device) persistentListener() error {
 	for {
 		n, err := d.conn.Read(block)
 		if err != nil {
-			return err
+			fmt.Printf("persistentListener error: [%s], resetting\n", err.Error())
+			if err := d.Close(); err != nil {
+				fmt.Println(err.Error())
+				return err
+			}
+			if err := d.Connect(); err != nil {
+				fmt.Println(err.Error())
+				return err
+			}
+			continue
 		}
 
 		// copy the read block into the buffer
@@ -245,8 +253,8 @@ func (d *Device) SetOnly(command, arg string) error {
 
 // Set sends a command and returns all responses
 func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
-	d.mux.Lock()
-	defer d.mux.Unlock()
+	// d.mux.Lock()
+	// defer d.mux.Unlock()
 
 	err := d.writeCommand(command, arg)
 	if err != nil {
@@ -264,8 +272,13 @@ func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
 					// fmt.Printf("got answer: %+v\n", msg)
 					return &pmm, nil
 				}
-			case <-time.After(time.Second * 5):
-				// fmt.Println("timeout reached")
+			case <-time.After(time.Second * 2):
+				fmt.Println("timeout reached")
+				if err := d.resetPersistentConnection(); err != nil {
+					fmt.Println(err.Error())
+					return nil, err
+				}
+
 				return &pmm, nil
 			}
 		}
@@ -276,6 +289,20 @@ func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
 		return nil, err
 	}
 	return mm, nil
+}
+
+func (d *Device) resetPersistentConnection() error {
+	fmt.Println("closing")
+	if err := d.Close(); err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	fmt.Println("connecting")
+	if err := d.Connect(); err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	return nil
 }
 
 func (d *Device) SetGetOne(command, arg string) (*Message, error) {

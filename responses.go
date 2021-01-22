@@ -78,6 +78,47 @@ func (r *Message) ParseResponseValue() (interface{}, error) {
 			return 0, err
 		}
 		return tempC, nil
+	case "PRS":
+		return r.Response, nil
+	case "NDS":
+		return parseNDS(r.Response)
+	case "NST":
+		return parseNST(r.Response)
+	case "NMS":
+		return parseNMS(r.Response)
+	case "MOT":
+		mot := false
+		if r.Response == "01" {
+			mot = true
+		}
+		return mot, nil
+	case "RAS":
+		ras := false
+		if r.Response == "01" {
+			ras = true
+		}
+		return ras, nil
+	case "PCT":
+		pct := false
+		if r.Response == "01" {
+			pct = true
+		}
+		return pct, nil
+	case "DIM":
+		switch r.Response {
+		case "00":
+			return "Bright", nil
+		case "01":
+			return "Medium", nil
+		case "02":
+			return "Dim", nil
+		case "03":
+			return "Off", nil
+		case "08":
+			return "Bright & LED-Off", nil
+		default:
+			return "unknown", nil
+		}
 	default:
 		return r.Response, nil
 	}
@@ -85,23 +126,9 @@ func (r *Message) ParseResponseValue() (interface{}, error) {
 	return nil, nil
 }
 
-/*
-// AM/FM tuner preset
-func (d *Device) GetPreset() (string, error) {
-	msg, err := d.SetGetOne("PRS", "QSTN")
-	if err != nil {
-		return "", err
-	}
-	return msg.Response, nil
-}
-
-func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
-	msg, err := d.SetGetOne("NDS", "QSTN")
-	if err != nil {
-		return nil, err
-	}
+func parseNDS(r string) (*NetworkStatus, error) {
 	var ns NetworkStatus
-	switch msg.Response[0:1] {
+	switch r[0:1] {
 	case "-":
 		ns.Source = "No Connection"
 	case "E":
@@ -112,7 +139,7 @@ func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
 		ns.Source = "Unknown"
 	}
 
-	switch msg.Response[1:2] {
+	switch r[1:2] {
 	case "-":
 		ns.Front = "No Device"
 	case "i":
@@ -129,7 +156,7 @@ func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
 		ns.Front = "Unknown"
 	}
 
-	switch msg.Response[2:3] {
+	switch r[2:3] {
 	case "-":
 		ns.Rear = "no device"
 	case "i":
@@ -149,14 +176,9 @@ func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
 	return &ns, nil
 }
 
-
-func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
-	msg, err := d.SetGetOne("NST", "QSTN")
-	if err != nil {
-		return nil, err
-	}
+func parseNST(r string) (*NetworkPlayStatus, error) {
 	var nps NetworkPlayStatus
-	switch msg.Response[0:1] {
+	switch r[0:1] {
 	case "S":
 		nps.State = "Stop"
 	case "P":
@@ -171,7 +193,7 @@ func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
 		nps.State = "EOF"
 	}
 
-	switch msg.Response[1:2] {
+	switch r[1:2] {
 	case "-":
 		nps.Repeat = "Off"
 	case "R":
@@ -186,7 +208,7 @@ func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
 		nps.Repeat = "Unknown"
 	}
 
-	switch msg.Response[2:3] {
+	switch r[2:3] {
 	case "-":
 		nps.Shuffle = "Off"
 	case "R":
@@ -203,27 +225,22 @@ func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
 	return &nps, nil
 }
 
-func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
-	msg, err := d.SetGetOne("NMS", "QSTN")
-	if err != nil {
-		return nil, err
-	}
-
+func parseNMS(r string) (*NetworkMenuStatus, error) {
 	// Mxxxxx20e
 	var nms NetworkMenuStatus
-	if msg.Response[0:1] == "M" {
+	if r[0:1] == "M" {
 		nms.Menu = true
 	}
-	if msg.Response[1:3] == "F1" {
+	if r[1:3] == "F1" {
 		nms.PositiveButtonIcon = true
 	}
-	if msg.Response[3:5] == "F2" {
+	if r[3:5] == "F2" {
 		nms.NegativeButtonIcon = true
 	}
-	if msg.Response[5:6] == "S" {
+	if r[5:6] == "S" {
 		nms.SeekTime = true
 	}
-	switch msg.Response[6:7] {
+	switch r[6:7] {
 	case "1":
 		nms.ElapsedTimeMode = 1
 	case "2":
@@ -231,9 +248,8 @@ func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
 	default:
 		nms.ElapsedTimeMode = 0
 	}
-	nms.Service = msg.Response[7:]
+	nms.Service = r[7:]
 	nms.ServiceName = NetSourceToName[NetSource(strings.ToUpper(nms.Service))]
 
 	return &nms, nil
 }
-*/

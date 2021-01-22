@@ -14,7 +14,7 @@ import (
 func main() {
 	host := flag.String("host", "192.168.1.152", "Onkyo host")
 	flag.Parse()
-	sigs := make(chan os.Signal)
+	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	dev, err := eiscp.NewReceiver(*host, true)
