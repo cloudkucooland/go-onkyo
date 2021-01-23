@@ -3,19 +3,20 @@ package eiscp
 import (
 	"bytes"
 	"encoding/binary"
-	// "fmt"
+	"fmt"
 )
 
 // Message eISCP
 type Message struct {
-	Version     byte   // always the same
-	Destination byte   // always the same
-	headerSize  uint32 // always the same
-	dataSize    uint32 // does this need to be here now? once parsed it is never touched again
-	raw         []byte // used for sending
-	Command     string // verify you've got the right Command
-	Response    string // the response value
-	Valid       bool   // if the packet was able to be parsed
+	Version     byte        // always the same
+	Destination byte        // always the same
+	headerSize  uint32      // always the same
+	dataSize    uint32      // does this need to be here now? once parsed it is never touched again
+	raw         []byte      // used for sending
+	Command     string      // verify you've got the right Command
+	Response    string      // the response value
+	Parsed      interface{} // the response value pased into ... whatever is appropriate
+	Valid       bool        // if the packet was able to be parsed
 }
 
 type MultiMessage struct {
@@ -47,6 +48,12 @@ func (msg *Message) Parse(rawP *[]byte) {
 	msg.Command = string(raw[18:21])
 	msg.Response = string(raw[21 : 16+msg.dataSize-3])
 	msg.Valid = true
+	p, err := msg.parseResponseValue()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	msg.Parsed = p
 }
 
 // BuildISCP - Build ISCP message

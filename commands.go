@@ -2,9 +2,7 @@ package eiscp
 
 import (
 	"encoding/hex"
-	"encoding/xml"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -33,7 +31,7 @@ func (d *Device) GetSource() (Source, error) {
 	if err != nil {
 		return "", err
 	}
-	return Source(msg.Response), err
+	return msg.Parsed.(Source), nil
 }
 
 // SetPower - turn on/off Onkyo device
@@ -50,7 +48,7 @@ func (d *Device) GetPower() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return msg.Response == "01", err
+	return msg.Parsed.(bool), err
 }
 
 // SetVolume - set master volume in Onkyo receiver
@@ -59,8 +57,7 @@ func (d *Device) SetVolume(level uint8) (uint8, error) {
 	if err != nil {
 		return uint8(0), err
 	}
-	vol, err := strconv.ParseUint(msg.Response, 16, 8)
-	return uint8(vol), err
+	return msg.Parsed.(uint8), err
 }
 
 // GetVolume - get master volume in Onkyo receiver
@@ -69,8 +66,7 @@ func (d *Device) GetVolume() (uint8, error) {
 	if err != nil {
 		return 0, err
 	}
-	vol, err := strconv.ParseUint(msg.Response, 16, 8)
-	return uint8(vol), err
+	return msg.Parsed.(uint8), err
 }
 
 func (d *Device) GetMute() (bool, error) {
@@ -78,7 +74,7 @@ func (d *Device) GetMute() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return msg.Response == "01", err
+	return msg.Parsed.(bool), err
 }
 
 func (d *Device) SetMute(mute bool) (bool, error) {
@@ -90,7 +86,7 @@ func (d *Device) SetMute(mute bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return msg.Response == "01", err
+	return msg.Parsed.(bool), err
 }
 
 func (d *Device) GetDetails() (*NRI, error) {
@@ -98,11 +94,7 @@ func (d *Device) GetDetails() (*NRI, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nri NRI
-	if err := xml.Unmarshal([]byte(msg.Response), &nri); err != nil {
-		return nil, err
-	}
-	return &nri, nil
+	return msg.Parsed.(*NRI), nil
 }
 
 func (d *Device) GetDisplayMode() (string, error) {
@@ -110,7 +102,7 @@ func (d *Device) GetDisplayMode() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) GetAudioInformation() (string, error) {
@@ -118,7 +110,7 @@ func (d *Device) GetAudioInformation() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) GetDimmer() (string, error) {
@@ -126,7 +118,7 @@ func (d *Device) GetDimmer() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) GetVideoInformation() (string, error) {
@@ -134,7 +126,7 @@ func (d *Device) GetVideoInformation() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 // hangs
@@ -143,7 +135,7 @@ func (d *Device) GetFLInformation() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) GetMonitorResolution() (string, error) {
@@ -151,11 +143,7 @@ func (d *Device) GetMonitorResolution() (string, error) {
 	if err != nil {
 		return "unknown", err
 	}
-	res, ok := resolutions[msg.Response]
-	if !ok {
-		res = "unknown"
-	}
-	return res, nil
+	return msg.Parsed.(string), nil
 }
 
 // hangs
@@ -164,7 +152,7 @@ func (d *Device) GetHDMIOut() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 // hangs
@@ -173,7 +161,7 @@ func (d *Device) GetISF() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 // hangs
@@ -182,11 +170,7 @@ func (d *Device) GetWideVideoMode() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	mode, ok := vwm[msg.Response]
-	if !ok {
-		mode = "unknown"
-	}
-	return mode, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) GetListeningMode() (string, error) {
@@ -194,11 +178,7 @@ func (d *Device) GetListeningMode() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	mode, ok := listeningmodes[msg.Response]
-	if !ok {
-		mode = msg.Response
-	}
-	return mode, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) GetNetworkJacketArt() (string, error) {
@@ -206,9 +186,10 @@ func (d *Device) GetNetworkJacketArt() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
+// this should return a bool...
 func (d *Device) SetNetworkJacketArt(s bool) (string, error) {
 	state := "DIS"
 	if s {
@@ -223,7 +204,7 @@ func (d *Device) SetNetworkJacketArt(s bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 type NLT struct {
@@ -245,18 +226,7 @@ func (d *Device) GetNetworkTitle() (*NLT, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nlt NLT
-	nlt.ServiceType = NetSource(msg.Response[0:2])
-	nlt.UIType = msg.Response[2:3]
-	nlt.LayerType = msg.Response[3:4]
-	nlt.CurrentPos = msg.Response[4:8]
-	nlt.NumItems = msg.Response[8:12]
-	nlt.NumLayers = msg.Response[12:14]
-	nlt.IconL = NetSource(msg.Response[16:18])
-	nlt.IconR = NetSource(msg.Response[18:20])
-	nlt.Status = msg.Response[20:22]
-	nlt.Title = msg.Response[22:len(msg.Response)]
-	return &nlt, nil
+	return msg.Parsed.(*NLT), nil
 }
 
 func (d *Device) GetNetworkTitleName() (string, error) {
@@ -264,7 +234,7 @@ func (d *Device) GetNetworkTitleName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 type NLS struct {
@@ -279,12 +249,7 @@ func (d *Device) GetNetworkListInfo() (*NLS, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nls NLS
-	nls.InfoType = msg.Response[0:1]
-	nls.LineInfo = msg.Response[1:2]
-	nls.Property = msg.Response[2:3]
-	nls.Line = msg.Response[3:len(msg.Response)]
-	return &nls, nil
+	return msg.Parsed.(*NLS), nil
 }
 
 // hangs
@@ -301,19 +266,15 @@ func (d *Device) GetFirmwareVersion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
-func (d *Device) GetTempData() (string, error) {
+func (d *Device) GetTempData() (int8, error) {
 	msg, err := d.SetGetOne("TPD", "QSTN")
 	if err != nil {
-		return "", err
+		return int8(20), err
 	}
-	vals := strings.Split(msg.Response, " ")
-	if len(vals) < 3 {
-		return "", fmt.Errorf("did not get temp response")
-	}
-	return vals[2], nil
+	return msg.Parsed.(int8), nil
 }
 
 // AM/FM tuner preset
@@ -322,7 +283,7 @@ func (d *Device) GetPreset() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 // AM/FM tuner preset
@@ -331,7 +292,7 @@ func (d *Device) SetPreset(p string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 func (d *Device) SetNetworkPreset(p string) (string, error) {
@@ -340,7 +301,7 @@ func (d *Device) SetNetworkPreset(p string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, nil
+	return msg.Parsed.(string), nil
 }
 
 type NetworkStatus struct {
@@ -354,53 +315,7 @@ func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ns NetworkStatus
-	switch msg.Response[0:1] {
-	case "-":
-		ns.Source = "No Connection"
-	case "E":
-		ns.Source = "Ethernet"
-	case "W":
-		ns.Source = "Wireless"
-	default:
-		ns.Source = "Unknown"
-	}
-
-	switch msg.Response[1:2] {
-	case "-":
-		ns.Front = "No Device"
-	case "i":
-		ns.Front = "iPod"
-	case "M":
-		ns.Front = "Memory/NAS"
-	case "W":
-		ns.Front = "Wireless Adaptor"
-	case "B":
-		ns.Front = "Bluetooth Adaptor"
-	case "x":
-		ns.Front = "Disabled"
-	default:
-		ns.Front = "Unknown"
-	}
-
-	switch msg.Response[2:3] {
-	case "-":
-		ns.Rear = "no device"
-	case "i":
-		ns.Rear = "iPod"
-	case "M":
-		ns.Rear = "Memory/NAS"
-	case "W":
-		ns.Rear = "Wireless Adaptor"
-	case "B":
-		ns.Rear = "Bluetooth Adaptor"
-	case "x":
-		ns.Rear = "Disabled"
-	default:
-		ns.Rear = "Unknown"
-	}
-
-	return &ns, nil
+	return msg.Parsed.(*NetworkStatus), nil
 }
 
 type NetworkPlayStatus struct {
@@ -414,52 +329,7 @@ func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nps NetworkPlayStatus
-	switch msg.Response[0:1] {
-	case "S":
-		nps.State = "Stop"
-	case "P":
-		nps.State = "Play"
-	case "p":
-		nps.State = "Pause"
-	case "F":
-		nps.State = "Fast-Forward"
-	case "R":
-		nps.State = "Rewind"
-	case "E":
-		nps.State = "EOF"
-	}
-
-	switch msg.Response[1:2] {
-	case "-":
-		nps.Repeat = "Off"
-	case "R":
-		nps.Repeat = "All"
-	case "F":
-		nps.Repeat = "Folder"
-	case "1":
-		nps.Repeat = "One"
-	case "x":
-		nps.Repeat = "Disabled"
-	default:
-		nps.Repeat = "Unknown"
-	}
-
-	switch msg.Response[2:3] {
-	case "-":
-		nps.Shuffle = "Off"
-	case "R":
-		nps.Shuffle = "All"
-	case "F":
-		nps.Shuffle = "Folder"
-	case "1":
-		nps.Shuffle = "One"
-	case "x":
-		nps.Shuffle = "Disabled"
-	default:
-		nps.Shuffle = "Unknown"
-	}
-	return &nps, nil
+	return msg.Parsed.(*NetworkPlayStatus), nil
 }
 
 // prs : e.g. Sxx or Pxx
@@ -471,7 +341,7 @@ func (d *Device) SetNetworkPlayStatus(s string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return msg.Response, err
+	return msg.Parsed.(string), err
 }
 
 func (d *Device) SetNetworkServiceTuneIn() error {
@@ -482,16 +352,6 @@ func (d *Device) SetNetworkService(s string) error {
 	err := d.SetOnly("NSV", s) // NSV hangs on reads
 	return err
 }
-
-/* this is what I'm after, being able to adjust the steam to which I'm listening by favorite number
-func (d *Device) SetNetworkFavorite(s string) (string, error) {
-	service := fmt.Sprintf("010%s", s)
-	msg, err := d.SetGetOne("NSV", service)
-	if err != nil {
-		return "", err
-	}
-	return msg.Response, nil
-} */
 
 func (d *Device) SelectNetworkListItem(i int) error {
 	line := fmt.Sprintf("I%05d", i)
@@ -514,31 +374,5 @@ func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Mxxxxx20e
-	var nms NetworkMenuStatus
-	if msg.Response[0:1] == "M" {
-		nms.Menu = true
-	}
-	if msg.Response[1:3] == "F1" {
-		nms.PositiveButtonIcon = true
-	}
-	if msg.Response[3:5] == "F2" {
-		nms.NegativeButtonIcon = true
-	}
-	if msg.Response[5:6] == "S" {
-		nms.SeekTime = true
-	}
-	switch msg.Response[6:7] {
-	case "1":
-		nms.ElapsedTimeMode = 1
-	case "2":
-		nms.ElapsedTimeMode = 2
-	default:
-		nms.ElapsedTimeMode = 0
-	}
-	nms.Service = msg.Response[7:]
-	nms.ServiceName = NetSourceToName[NetSource(strings.ToUpper(nms.Service))]
-
-	return &nms, nil
+	return msg.Parsed.(*NetworkMenuStatus), nil
 }
