@@ -46,8 +46,8 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent 
 
 	if persistent {
 		d.sender = make(chan Command)
-		d.Responses = make(chan Message, 50)
-		d.privateResponses = make(chan Message, 50)
+		d.Responses = make(chan Message, 50)        // the channel for the application to listen on
+		d.privateResponses = make(chan Message, 50) // the channel for SetGetAll/SetGet to use
 
 		go func(dev Device) {
 			d.persistentListener()
@@ -69,8 +69,7 @@ func NewReceiver(host string, persistent bool) (*Device, error) {
 // Close connection
 func (d *Device) Close() error {
 	if d.conn != nil {
-		// fmt.Println("closing connection")
-		d.conn.SetLinger(0)
+		// d.conn.SetLinger(0)
 		err := d.conn.Close()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -103,6 +102,7 @@ func (d *Device) Connect() error {
 	return nil
 }
 
+// read is used for non-persistent connections (e.g. onkyo cli tool)
 func (d *Device) read(command string) (*MultiMessage, error) {
 	if d.conn == nil {
 		return nil, fmt.Errorf("not connected")
@@ -147,6 +147,7 @@ func (d *Device) read(command string) (*MultiMessage, error) {
 	}
 }
 
+// long-lived clients should use the persistentListner and read from the d.Responses channel
 func (d *Device) persistentListener() error {
 	if d.conn == nil {
 		return fmt.Errorf("not connected")
@@ -187,11 +188,12 @@ func (d *Device) persistentListener() error {
 			}
 			d.Responses <- msg
 			d.privateResponses <- msg
-			time.Sleep(time.Millisecond * 10)
+			// time.Sleep(time.Millisecond * 10)
 			continue
 		}
 		// otherwise keep reading
 		bytesread += n
+		// NRI needs this on TX-NR686 (lowest threshold not researched)
 		time.Sleep(time.Millisecond * 10)
 	}
 	return nil
@@ -203,7 +205,6 @@ func (d *Device) persistentSender() error {
 	}
 
 	for cmd := range d.sender {
-		// fmt.Printf("persistentSender sending: %+v\n", cmd)
 		d.send(cmd)
 	}
 	return nil
@@ -253,8 +254,8 @@ func (d *Device) SetOnly(command, arg string) error {
 
 // Set sends a command and returns all responses
 func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
-	// d.mux.Lock()
-	// defer d.mux.Unlock()
+	d.mux.Lock()
+	defer d.mux.Unlock()
 
 	err := d.writeCommand(command, arg)
 	if err != nil {
@@ -269,17 +270,10 @@ func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
 				// fmt.Printf("SetGetAll: %+v\n", msg)
 				pmm.Messages = append(pmm.Messages, &msg)
 				if msg.Command == command {
-					// fmt.Printf("got answer: %+v\n", msg)
 					return &pmm, nil
 				}
-			case <-time.After(time.Second * 2):
-				fmt.Println("timeout reached")
-				if err := d.resetPersistentConnection(); err != nil {
-					fmt.Println(err.Error())
-					return nil, err
-				}
-
-				return &pmm, nil
+			case <-time.After(time.Second * 3):
+				return &pmm, fmt.Errorf("timeout reached: %d non-responses received", len(pmm.Messages))
 			}
 		}
 	}
@@ -291,29 +285,14 @@ func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
 	return mm, nil
 }
 
-func (d *Device) resetPersistentConnection() error {
-	fmt.Println("closing")
-	if err := d.Close(); err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	fmt.Println("connecting")
-	if err := d.Connect(); err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-	return nil
-}
-
 func (d *Device) SetGetOne(command, arg string) (*Message, error) {
-	// SetGetAll does the locking
+	// SetGetAll does the requred locking
 	mm, err := d.SetGetAll(command, arg)
 	if err != nil {
 		return nil, err
 	}
 	if len(mm.Messages) == 0 {
-		return nil, fmt.Errorf("no reply")
+		return nil, fmt.Errorf("no response")
 	}
-	// fmt.Printf("SetGetOne: %+v\n", mm.Messages[len(mm.Messages)-1])
 	return mm.Messages[len(mm.Messages)-1], nil
 }
