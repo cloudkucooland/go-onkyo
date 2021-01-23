@@ -8,25 +8,30 @@ import (
 )
 
 func main() {
-	host := flag.String("host", "192.168.1.152", "Onkyo host")
-	command := flag.String("command", "", "Param name")
-	value := flag.String("value", "", "Param value. Empty means only get")
-	listSources := flag.Bool("list-source", false, "List source")
+	var command, value string
+	host := flag.String("h", "192.168.1.152", "Onkyo host")
+	// verbose := flag.Bool("v", false, "verbose")
 	flag.Parse()
 
-	if *listSources {
-		for k := range eiscp.SourceByName {
-			fmt.Println(k)
-		}
-		return
+	args := flag.Args()
+	argc := len(args)
+	if argc == 0 {
+		command = "unset"
 	}
+	if argc >= 1 {
+		command = args[0]
+	}
+	if argc > 1 {
+		value = args[1]
+	}
+
 	dev, err := eiscp.NewReceiver(*host, false)
 	if err != nil {
 		panic(err)
 	}
 	defer dev.Close()
-	if *value == "" {
-		switch *command {
+	if value == "" {
+		switch command {
 		case "details":
 			nri, err := dev.GetDetails()
 			if err != nil {
@@ -107,7 +112,7 @@ func main() {
 			fmt.Printf("preset: %s\n", p)
 		case "temp":
 			temp, _ := dev.GetTempData()
-			fmt.Printf("temp: %s\n", temp)
+			fmt.Printf("temp: %d\n", temp)
 		case "nms":
 			nms, err := dev.GetNetworkMenuStatus()
 			if err != nil {
@@ -117,28 +122,18 @@ func main() {
 		case "test":
 			fwv, _ := dev.GetFirmwareVersion()
 			fmt.Printf("firmware version: %s\n", fwv)
-			dm, _ := dev.GetDisplayMode() // works
+			dm, _ := dev.GetDisplayMode()
 			fmt.Printf("display mode: %s\n", dm)
-			ai, _ := dev.GetAudioInformation() // works
+			ai, _ := dev.GetAudioInformation()
 			fmt.Printf("audio information: %s\n", ai)
-			dim, _ := dev.GetDimmer() // works
+			dim, _ := dev.GetDimmer()
 			fmt.Printf("dimmer : %s\n", dim)
-			vi, _ := dev.GetVideoInformation() // works
+			vi, _ := dev.GetVideoInformation()
 			fmt.Printf("video information: %s\n", vi)
-			// fl, _ := dev.GetFLInformation() // fails
-			// fmt.Printf("fl: %s\n", fl)
-			// mr, _ := dev.GetMonitorResolution() // fails
-			// fmt.Printf("monitor resolution: %s\n", mr)
-			// r, _ := dev.GetHDMIOut() // fails
-			// fmt.Printf("hdmi out: %s\n", r)
-			// s, _ := dev.GetISF() // fails
-			// fmt.Printf("ISF: %s\n", s)
-			// s, _ := dev.GetWideVideoMode() // fails
-			// fmt.Printf("Wide Video Mode: %s\n", s)
-			s, _ := dev.GetListeningMode() // works
-			fmt.Printf("Listening Mode: %s\n", s)
+			s, _ := dev.GetListeningMode()
+			fmt.Printf("listening mode: %s\n", s)
 		default:
-			mm, err := dev.SetGetAll(*command, "QSTN")
+			mm, err := dev.SetGetAll(command, "QSTN")
 			if err != nil {
 				fmt.Println(err.Error())
 				return
@@ -146,17 +141,19 @@ func main() {
 			for _, v := range mm.Messages {
 				fmt.Printf("reply: [%s] %s\n", v.Command, v.Response)
 			}
+		case "unset":
+			fmt.Println("usage: onkyo [command] [value]")
 		}
 	} else {
-		switch *command {
+		switch command {
 		case "power":
-			v, err := strconv.ParseBool(*value)
+			v, err := strconv.ParseBool(value)
 			if err != nil {
 				panic(err)
 			}
 			fmt.Println(dev.SetPower(v))
 		case "volume":
-			v, err := strconv.ParseInt(*value, 10, 8)
+			v, err := strconv.ParseInt(value, 10, 8)
 			if err != nil {
 				panic(err)
 			}
@@ -166,37 +163,31 @@ func main() {
 			}
 			fmt.Printf("new volume: %d\n", vol)
 		case "source":
-			src, ok := eiscp.SourceByName[*value]
+			src, ok := eiscp.SourceByName[value]
 			if !ok {
 				panic("Unknown source")
 			}
 			fmt.Println(dev.SetSource(src))
 		case "preset":
-			msg, err := dev.SetPreset(*value)
+			msg, err := dev.SetPreset(value)
 			if err != nil {
 				panic(err)
 			}
 			fmt.Println(msg)
 		case "netpreset": // hangs
-			msg, err := dev.SetNetworkPreset(*value)
+			msg, err := dev.SetNetworkPreset(value)
 			if err != nil {
 				panic(err)
 			}
 			fmt.Println(msg)
 		case "netsrc": // hangs
-			err := dev.SetNetworkService(*value)
+			err := dev.SetNetworkService(value)
 			if err != nil {
 				panic(err)
 			}
 			fmt.Println("set")
-		/* case "netfav": // hangs
-		msg, err := dev.SetNetworkFavorite(*value)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(msg) */
 		case "nja": // turn on/off the network art -- saves bandwidth in my config
-			s, err := strconv.ParseBool(*value)
+			s, err := strconv.ParseBool(value)
 			if err != nil {
 				panic(err)
 			}
@@ -206,7 +197,7 @@ func main() {
 			}
 			fmt.Println(state)
 		case "select":
-			i, err := strconv.Atoi(*value)
+			i, err := strconv.Atoi(value)
 			if err != nil {
 				panic(err)
 			}
@@ -216,7 +207,7 @@ func main() {
 			}
 			fmt.Printf("selected: I%05d\n", i)
 		default:
-			mm, err := dev.SetGetAll(*command, *value)
+			mm, err := dev.SetGetAll(command, value)
 			if err != nil {
 				panic(err)
 			}
