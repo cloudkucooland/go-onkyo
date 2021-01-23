@@ -3,12 +3,12 @@ package eiscp
 import (
 	// "encoding/hex"
 	"encoding/xml"
-	"fmt"
+	// "fmt"
 	"strconv"
 	"strings"
 )
 
-func (r *Message) ParseResponseValue() (interface{}, error) {
+func (r *Message) parseResponseValue() (interface{}, error) {
 	switch r.Command {
 	case "SLI":
 		return Source(r.Response), nil
@@ -69,15 +69,12 @@ func (r *Message) ParseResponseValue() (interface{}, error) {
 		nls.Line = r.Response[3:len(r.Response)]
 		return &nls, nil
 	case "TPD":
-		vals := strings.Split(r.Response, " ")
-		if len(vals) < 3 {
-			return "", fmt.Errorf("did not get temp response")
-		}
-		tempC, err := strconv.Atoi(vals[2])
+		// "F100C 38"
+		tempC, err := strconv.Atoi(r.Response[6:8])
 		if err != nil {
-			return 0, err
+			return 38, err
 		}
-		return tempC, nil
+		return int8(tempC), nil
 	case "PRS":
 		return r.Response, nil
 	case "NDS":
