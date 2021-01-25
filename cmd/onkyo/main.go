@@ -59,11 +59,7 @@ func main() {
 				fmt.Println(err)
 				return
 			}
-			if src == "" {
-				fmt.Println("unknown")
-				return
-			}
-			fmt.Println(eiscp.SourceToName[src])
+			fmt.Println(src)
 		case "network":
 			ns, err := dev.GetNetworkStatus()
 			if err != nil {
@@ -120,6 +116,12 @@ func main() {
 			}
 			fmt.Printf("%+v\n", nms)
 		case "test":
+			// nri, _:= dev.GetDetails()
+			// fmt.Printf("details : %+v\n", nri)
+			src, _ := dev.GetSource()
+			fmt.Printf("source: %s\n", src)
+			temp, _ := dev.GetTempData()
+			fmt.Printf("temp: %d\n", temp)
 			fwv, _ := dev.GetFirmwareVersion()
 			fmt.Printf("firmware version: %s\n", fwv)
 			dm, _ := dev.GetDisplayMode()

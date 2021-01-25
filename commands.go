@@ -26,12 +26,21 @@ func (d *Device) SetSourceByCode(code int) (*Message, error) {
 }
 
 // GetSource - Get Onkyo source channel. Use SourceToName to get readable name
-func (d *Device) GetSource() (Source, error) {
+func (d *Device) GetSource() (string, error) {
 	msg, err := d.SetGetOne("SLI", "QSTN")
 	if err != nil {
 		return "", err
 	}
-	return msg.Parsed.(Source), nil
+	return msg.Parsed.(string), nil
+}
+
+// GetSourceByCode - Get Onkyo source channel. Use SourceToName to get readable name
+func (d *Device) GetSourceByCode() (Source, error) {
+	msg, err := d.SetGetOne("SLI", "QSTN")
+	if err != nil {
+		return "", err
+	}
+	return Source(msg.Response), nil
 }
 
 // SetPower - turn on/off Onkyo device
@@ -203,6 +212,9 @@ func (d *Device) SetNetworkJacketArt(s bool) (string, error) {
 	msg, err := d.SetGetOne("NJA", "QSTN")
 	if err != nil {
 		return "", err
+	}
+	if msg.Parsed == nil {
+		return "", nil
 	}
 	return msg.Parsed.(string), nil
 }

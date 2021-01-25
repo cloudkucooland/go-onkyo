@@ -155,7 +155,7 @@ func (d *Device) persistentListener() error {
 
 	blocksize := 1024 // get interface MTU
 	block := make([]byte, blocksize)
-	bufsize := 40 * blocksize
+	bufsize := 100 * blocksize
 	buf := make([]byte, bufsize)
 	var bytesread int
 	var msg Message
@@ -188,11 +188,15 @@ func (d *Device) persistentListener() error {
 			}
 			d.Responses <- msg
 			d.privateResponses <- msg
-			// time.Sleep(time.Millisecond * 10)
 			continue
 		}
 		// otherwise keep reading
 		bytesread += n
+		if bytesread == bufsize {
+			fmt.Printf("buffer full, %n:\n%s\n", bytesread, buf)
+			bytesread = 0 // trash everything read so far
+			continue      // the remainder of this read will be garbage
+		}
 		// NRI needs this on TX-NR686 (lowest threshold not researched)
 		time.Sleep(time.Millisecond * 10)
 	}

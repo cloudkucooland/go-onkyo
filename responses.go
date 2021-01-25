@@ -11,7 +11,11 @@ import (
 func (r *Message) parseResponseValue() (interface{}, error) {
 	switch r.Command {
 	case "SLI":
-		return Source(r.Response), nil
+		s, ok := SourceToName[Source(r.Response)]
+		if !ok {
+			s = "unknown"
+		}
+		return s, nil
 	case "PWR":
 		return r.Response == "01", nil
 	case "MVL":
@@ -121,6 +125,15 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 	}
 	// not reached
 	return nil, nil
+}
+
+var DimmerState = map[string]string{
+	"Bright":           "00",
+	"Medium":           "01",
+	"Dim":              "02",
+	"Off":              "03",
+	"Bright & LED-Off": "08",
+	"unknown":          "ff",
 }
 
 func parseNDS(r string) (*NetworkStatus, error) {
