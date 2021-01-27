@@ -190,6 +190,22 @@ func (d *Device) GetListeningMode() (string, error) {
 	return msg.Parsed.(string), nil
 }
 
+func (d *Device) SetListeningMode(code string) (string, error) {
+	if len(code) != 2 {
+		for k, v := range ListeningModes {
+			if v == code {
+				code = k
+				break
+			}
+		}
+	}
+	msg, err := d.SetGetOne("LMD", code)
+	if err != nil {
+		return "", err
+	}
+	return msg.Parsed.(string), nil
+}
+
 func (d *Device) GetNetworkJacketArt() (string, error) {
 	msg, err := d.SetGetOne("NJA", "QSTN")
 	if err != nil {
@@ -199,38 +215,24 @@ func (d *Device) GetNetworkJacketArt() (string, error) {
 }
 
 // this should return a bool...
-func (d *Device) SetNetworkJacketArt(s bool) (string, error) {
+func (d *Device) SetNetworkJacketArt(s bool) (bool, error) {
 	state := "DIS"
 	if s {
 		state = "ENA"
 	}
 	err := d.SetOnly("NJA", state)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
 	msg, err := d.SetGetOne("NJA", "QSTN")
 	if err != nil {
-		return "", err
+		return false, err
 	}
 	if msg.Parsed == nil {
-		return "", nil
+		return false, nil
 	}
-	return msg.Parsed.(string), nil
-}
-
-type NLT struct {
-	ServiceType NetSource
-	UIType      string // 1 - int // 0 : List, 1 : Menu, 2 : Playback, 3 : Popup, 4 : Keyboard, 5 : Menu
-	LayerType   string // 1 - int // 0 : NET TOP, 1 : Service Top,DLNA/USB/iPod Top, 2 : under 2nd Layer
-	CurrentPos  string // 4 - hex
-	NumItems    string // 4 - hex
-	NumLayers   string // 2 - hex
-	Reserved    string // 2 - unused
-	IconL       NetSource
-	IconR       NetSource
-	Status      string // 2 -- hex -- lookup table // 00 : None, 01 : Connecting, 02 : Acquiring License, 03 : Buffering 04 : Cannot Play, 05 : Searching, 06 : Profile update, 07 : Operation disabled 08 : Server Start-up, 09 : Song rated as Favorite, 0A : Song banned from station, 0B : Authentication Failed, 0C : Spotify Paused(max 1 device), 0D : Track Not Available, 0E : Cannot Skip
-	Title       string // the rest
+	return msg.Parsed.(bool), nil
 }
 
 func (d *Device) GetNetworkTitle() (*NLT, error) {
@@ -247,13 +249,6 @@ func (d *Device) GetNetworkTitleName() (string, error) {
 		return "", err
 	}
 	return msg.Parsed.(string), nil
-}
-
-type NLS struct {
-	InfoType string // (A : ASCII letter, C : Cursor Info, U : Unicode letter)
-	LineInfo string // (0-9 : 1st to 10th Line)
-	Property string // varies based on context
-	Line     string
 }
 
 func (d *Device) GetNetworkListInfo() (*NLS, error) {
@@ -316,24 +311,12 @@ func (d *Device) SetNetworkPreset(p string) (string, error) {
 	return msg.Parsed.(string), nil
 }
 
-type NetworkStatus struct {
-	Source string
-	Front  string
-	Rear   string
-}
-
 func (d *Device) GetNetworkStatus() (*NetworkStatus, error) {
 	msg, err := d.SetGetOne("NDS", "QSTN")
 	if err != nil {
 		return nil, err
 	}
 	return msg.Parsed.(*NetworkStatus), nil
-}
-
-type NetworkPlayStatus struct {
-	State   string
-	Repeat  string
-	Shuffle string
 }
 
 func (d *Device) GetNetworkPlayStatus() (*NetworkPlayStatus, error) {
@@ -369,16 +352,6 @@ func (d *Device) SelectNetworkListItem(i int) error {
 	line := fmt.Sprintf("I%05d", i)
 	err := d.SetOnly("NLS", line)
 	return err
-}
-
-type NetworkMenuStatus struct {
-	Menu               bool
-	PositiveButtonIcon bool
-	NegativeButtonIcon bool
-	SeekTime           bool
-	ElapsedTimeMode    int
-	Service            string
-	ServiceName        string
 }
 
 func (d *Device) GetNetworkMenuStatus() (*NetworkMenuStatus, error) {

@@ -132,9 +132,23 @@ func main() {
 			fmt.Printf("dimmer : %s\n", dim)
 			vi, _ := dev.GetVideoInformation()
 			fmt.Printf("video information: %s\n", vi)
-			s, _ := dev.GetListeningMode()
+		case "listeningmode":
+			s, err := dev.GetListeningMode()
+			if err != nil {
+				panic(err)
+			}
 			fmt.Printf("listening mode: %s\n", s)
+		case "listeningmodes":
+			for k, v := range eiscp.ListeningModes {
+				fmt.Printf("%s: %s\n", k, v)
+			}
+		case "help":
+			fmt.Println("get commands: test, nms, temp, preset, nowplaying, network, source, volume, power, details, listeningmode, listeningmodes")
 		default:
+			if len(command) != 3 {
+				fmt.Println("usage: onkyo [command|CMD] [value]")
+				return
+			}
 			mm, err := dev.SetGetAll(command, "QSTN")
 			if err != nil {
 				fmt.Println(err.Error())
@@ -208,6 +222,14 @@ func main() {
 				panic(err)
 			}
 			fmt.Printf("selected: I%05d\n", i)
+		case "listeningmode":
+			s, err := dev.SetListeningMode(value)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("listening mode: %s\n", s)
+		case "help":
+			fmt.Println("set commands: select, nja, netsrc, netpreset, source, volume, power")
 		default:
 			mm, err := dev.SetGetAll(command, value)
 			if err != nil {

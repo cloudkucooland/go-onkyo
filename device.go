@@ -109,8 +109,8 @@ func (d *Device) read(command string) (*MultiMessage, error) {
 	}
 
 	mm := MultiMessage{}
-	blocksize := 1500 // should read interface for MTU
-	bufsize := 20 * blocksize
+	blocksize := 1024 // should read interface for MTU
+	bufsize := 100 * blocksize
 	for {
 		raw := make([]byte, 0, bufsize)
 		tmp := make([]byte, blocksize)

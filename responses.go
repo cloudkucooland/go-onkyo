@@ -3,7 +3,7 @@ package eiscp
 import (
 	// "encoding/hex"
 	"encoding/xml"
-	// "fmt"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -29,6 +29,7 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 	case "NRI":
 		var nri NRI
 		if err := xml.Unmarshal([]byte(r.Response), &nri); err != nil {
+			fmt.Println(string(r.Response))
 			return nil, err
 		}
 		return &nri, nil
@@ -45,13 +46,17 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 		}
 		return mode, nil
 	case "LMD":
-		mode, ok := listeningmodes[r.Response]
+		mode, ok := ListeningModes[r.Response]
 		if !ok {
 			mode = r.Response
 		}
 		return mode, nil
 	case "NJA":
-		//
+		// this is useless for reading the cover art if sent, only for setting it to on/off
+		if r.Response == "00" {
+			return false, nil
+		}
+		return true, nil
 	case "NLT":
 		var nlt NLT
 		nlt.ServiceType = NetSource(r.Response[0:2])

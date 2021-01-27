@@ -24,7 +24,7 @@ var vwm = map[string]string{
 	"UP": "up",
 }
 
-var listeningmodes = map[string]string{
+var ListeningModes = map[string]string{
 	"00":     "stereo",
 	"01":     "direct",
 	"02":     "surround",
@@ -104,4 +104,47 @@ var listeningmodes = map[string]string{
 	"AUTO":   "auto",
 	"SURR":   "surr",
 	"STEREO": "stereo",
+}
+
+type NLT struct {
+	ServiceType NetSource
+	UIType      string // 1 - int // 0 : List, 1 : Menu, 2 : Playback, 3 : Popup, 4 : Keyboard, 5 : Menu
+	LayerType   string // 1 - int // 0 : NET TOP, 1 : Service Top,DLNA/USB/iPod Top, 2 : under 2nd Layer
+	CurrentPos  string // 4 - hex
+	NumItems    string // 4 - hex
+	NumLayers   string // 2 - hex
+	Reserved    string // 2 - unused
+	IconL       NetSource
+	IconR       NetSource
+	Status      string // 2 -- hex -- lookup table // 00 : None, 01 : Connecting, 02 : Acquiring License, 03 : Buffering 04 : Cannot Play, 05 : Searching, 06 : Profile update, 07 : Operation disabled 08 : Server Start-up, 09 : Song rated as Favorite, 0A : Song banned from station, 0B : Authentication Failed, 0C : Spotify Paused(max 1 device), 0D : Track Not Available, 0E : Cannot Skip
+	Title       string // the rest
+}
+
+type NLS struct {
+	InfoType string // (A : ASCII letter, C : Cursor Info, U : Unicode letter)
+	LineInfo string // (0-9 : 1st to 10th Line)
+	Property string // varies based on context
+	Line     string
+}
+
+type NetworkStatus struct {
+	Source string
+	Front  string
+	Rear   string
+}
+
+type NetworkPlayStatus struct {
+	State   string
+	Repeat  string
+	Shuffle string
+}
+
+type NetworkMenuStatus struct {
+	Menu               bool
+	PositiveButtonIcon bool
+	NegativeButtonIcon bool
+	SeekTime           bool
+	ElapsedTimeMode    int
+	Service            string
+	ServiceName        string
 }
