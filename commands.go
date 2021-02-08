@@ -276,12 +276,9 @@ func (d *Device) GetFirmwareVersion() (string, error) {
 	return msg.Parsed.(string), nil
 }
 
-func (d *Device) GetTempData() (int8, error) {
+func (d *Device) GetTempData() (uint8, error) {
 	msg, err := d.SetGetOne("TPD", "QSTN")
-	if err != nil {
-		return int8(20), err
-	}
-	return msg.Parsed.(int8), nil
+	return msg.Parsed.(uint8), err
 }
 
 // AM/FM tuner preset

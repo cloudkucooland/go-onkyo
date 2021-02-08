@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// bundle these together, whenever we see an NLT, start over.
+type menu struct {
+	NLS []*NLS
+	NLT *NLT
+}
+
+var Menu menu
+
 func (r *Message) parseResponseValue() (interface{}, error) {
 	switch r.Command {
 	case "SLI":
@@ -69,6 +77,10 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 		nlt.IconR = NetSource(r.Response[18:20])
 		nlt.Status = r.Response[20:22]
 		nlt.Title = r.Response[22:len(r.Response)]
+
+		// reset the menu
+		Menu.NLS = nil
+		Menu.NLT = &nlt
 		return &nlt, nil
 	case "NLS":
 		var nls NLS
@@ -76,14 +88,15 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 		nls.LineInfo = r.Response[1:2]
 		nls.Property = r.Response[2:3]
 		nls.Line = r.Response[3:len(r.Response)]
+		Menu.NLS = append(Menu.NLS, &nls)
 		return &nls, nil
 	case "TPD":
 		// "F100C 38"
 		tempC, err := strconv.Atoi(r.Response[6:8])
 		if err != nil {
-			return 38, err
+			return uint8(38), err
 		}
-		return int8(tempC), nil
+		return uint8(tempC), nil
 	case "PRS":
 		return r.Response, nil
 	case "NDS":
