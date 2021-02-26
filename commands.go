@@ -278,6 +278,9 @@ func (d *Device) GetFirmwareVersion() (string, error) {
 
 func (d *Device) GetTempData() (uint8, error) {
 	msg, err := d.SetGetOne("TPD", "QSTN")
+	if err != nil {
+		return 0, err
+	}
 	return msg.Parsed.(uint8), err
 }
 
