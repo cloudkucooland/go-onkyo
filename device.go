@@ -1,5 +1,8 @@
 package eiscp
 
+// https://habrahabr.info/development/programming/5890-onkyos-iscp-eiscp-protocol-control-of-onkyo-devices-over-a.html
+// https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp-commands.yaml
+
 import (
 	"fmt"
 	"io"
