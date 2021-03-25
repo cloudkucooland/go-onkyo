@@ -92,7 +92,12 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 		return &nls, nil
 	case "TPD":
 		// "F100C 38"
-		tempC, err := strconv.Atoi(r.Response[6:8])
+		sub := r.Response[6:8]
+		if sub == "" || sub == " 0" {
+			return uint8(38), nil
+		}
+
+		tempC, err := strconv.Atoi(sub)
 		if err != nil {
 			return uint8(38), err
 		}
