@@ -35,6 +35,14 @@ type Device struct {
 
 // just use the NewReceiver shortcut
 func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent bool) (*Device, error) {
+	if host == "" {
+		h, err := Discover()
+		if err != nil {
+			return nil, err
+		}
+		host = h
+	}
+
 	d := Device{
 		Host:            host,
 		destinationType: deviceType,

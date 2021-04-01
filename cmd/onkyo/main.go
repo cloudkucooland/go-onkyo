@@ -9,7 +9,7 @@ import (
 
 func main() {
 	var command, value string
-	host := flag.String("h", "192.168.1.152", "Onkyo host")
+	host := flag.String("h", "", "Onkyo host")
 	// verbose := flag.Bool("v", false, "verbose")
 	flag.Parse()
 
