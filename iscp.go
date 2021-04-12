@@ -3,7 +3,6 @@ package eiscp
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 // Message eISCP
@@ -27,13 +26,13 @@ type MultiMessage struct {
 func (msg *Message) Parse(rawP *[]byte) {
 	raw := *rawP
 	if string(raw[:4]) != "ISCP" {
-		// return fmt.Errorf("this is not an EISCP message: %s", string(*rawP))
+		// return ologger.Errorf("this is not an EISCP message: %s", string(*rawP))
 		msg.Valid = false
 		return
 	}
 	msg.headerSize = binary.BigEndian.Uint32(raw[4:8])
 	if msg.headerSize != 16 {
-		// return fmt.Errorf("invalid header size")
+		// return ologger.Errorf("invalid header size")
 		msg.Valid = false
 		return
 	}
@@ -50,7 +49,7 @@ func (msg *Message) Parse(rawP *[]byte) {
 	msg.Valid = true
 	p, err := msg.parseResponseValue()
 	if err != nil {
-		fmt.Println(err.Error())
+		ologger.Println(err.Error())
 		return
 	}
 	msg.Parsed = p

@@ -83,7 +83,7 @@ func (d *Device) Close() error {
 		// d.conn.SetLinger(0)
 		err := d.conn.Close()
 		if err != nil {
-			fmt.Println(err.Error())
+			ologger.Println(err.Error())
 		}
 		d.conn = nil
 		return err
@@ -94,7 +94,7 @@ func (d *Device) Close() error {
 // Connect to an eISCP device by v4 IP address (not host name)
 func (d *Device) Connect() error {
 	if d.conn != nil {
-		fmt.Println("already connected")
+		ologger.Println("already connected")
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (d *Device) Connect() error {
 	conn, err := net.DialTCP("tcp", nil, &r)
 	d.conn = conn
 	if err != nil {
-		fmt.Println(err.Error())
+		ologger.Println(err.Error())
 		return err
 	}
 	return nil
@@ -131,7 +131,7 @@ func (d *Device) read(command string) (*MultiMessage, error) {
 
 			n, err := d.conn.Read(tmp)
 			if err != nil && err != io.EOF && !strings.Contains(err.Error(), "i/o timeout") {
-				fmt.Printf("cannot read data from device: %s", err.Error())
+				ologger.Printf("cannot read data from device: %s", err.Error())
 				return nil, err
 			} else if err != nil && strings.Contains(err.Error(), "i/o timeout") {
 				return &mm, nil
@@ -149,10 +149,10 @@ func (d *Device) read(command string) (*MultiMessage, error) {
 		if !msg.Valid {
 			return &mm, nil
 		}
-		// fmt.Printf("got message [%s]: [%s]\n", msg.Command, msg.Response)
+		// ologger.Printf("got message [%s]: [%s]\n", msg.Command, msg.Response)
 		mm.Messages = append(mm.Messages, &msg)
 		if msg.Command == command {
-			// fmt.Println("got original command, returning")
+			// ologger.Println("got original command, returning")
 			return &mm, nil
 		}
 	}
@@ -173,13 +173,13 @@ func (d *Device) persistentListener() error {
 	for {
 		n, err := d.conn.Read(block)
 		if err != nil {
-			fmt.Printf("persistentListener error: [%s], resetting\n", err.Error())
+			ologger.Printf("persistentListener error: [%s], resetting\n", err.Error())
 			if err := d.Close(); err != nil {
-				fmt.Println(err.Error())
+				ologger.Println(err.Error())
 				return err
 			}
 			if err := d.Connect(); err != nil {
-				fmt.Println(err.Error())
+				ologger.Println(err.Error())
 				return err
 			}
 			continue
@@ -195,7 +195,7 @@ func (d *Device) persistentListener() error {
 			bytesread = 0
 			msg.Parse(&buf)
 			if !msg.Valid {
-				fmt.Printf("invalid message: %+v\n", msg)
+				ologger.Printf("invalid message: %+v\n", msg)
 			}
 			d.Responses <- msg
 			d.privateResponses <- msg
@@ -204,7 +204,7 @@ func (d *Device) persistentListener() error {
 		// otherwise keep reading
 		bytesread += n
 		if bytesread == bufsize {
-			fmt.Printf("buffer full, %n:\n%s\n", bytesread, buf)
+			ologger.Printf("buffer full, %n:\n%s\n", bytesread, buf)
 			bytesread = 0 // trash everything read so far
 			continue      // the remainder of this read will be garbage
 		}
@@ -249,7 +249,7 @@ func (d *Device) send(c Command) error {
 		raw:         []byte(c.Code + c.Value),
 	}
 	m := msg.BuildEISCP()
-	// fmt.Printf("m: %+v %s\n", m, string(m))
+	// ologger.Printf("m: %+v %s\n", m, string(m))
 	_, err := d.conn.Write(m)
 
 	return err
@@ -282,7 +282,7 @@ func (d *Device) SetGetAll(command, arg string) (*MultiMessage, error) {
 		for {
 			select {
 			case msg := <-d.privateResponses:
-				// fmt.Printf("SetGetAll: %+v\n", msg)
+				// ologger.Printf("SetGetAll: %+v\n", msg)
 				pmm.Messages = append(pmm.Messages, &msg)
 				if msg.Command == command {
 					return &pmm, nil

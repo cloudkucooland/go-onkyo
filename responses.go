@@ -1,9 +1,7 @@
 package eiscp
 
 import (
-	// "encoding/hex"
 	"encoding/xml"
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -37,7 +35,7 @@ func (r *Message) parseResponseValue() (interface{}, error) {
 	case "NRI":
 		var nri NRI
 		if err := xml.Unmarshal([]byte(r.Response), &nri); err != nil {
-			fmt.Println(string(r.Response))
+			ologger.Println(string(r.Response))
 			return nil, err
 		}
 		return &nri, nil

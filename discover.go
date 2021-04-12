@@ -2,7 +2,6 @@ package eiscp
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -29,7 +28,7 @@ func Discover() (string, error) {
 
 	if err := dnssd.LookupType(ctx, "_raop._tcp.local.", found, reject); err != nil {
 		if err.Error() != "context canceled" {
-			fmt.Printf("discovery: %v\n", err)
+			ologger.Printf("discovery: %v\n", err)
 			return discovered, err
 		}
 	}
@@ -37,5 +36,5 @@ func Discover() (string, error) {
 }
 
 func reject(e dnssd.BrowseEntry) {
-	fmt.Printf("dnssd-lookup: %+v", e)
+	ologger.Printf("dnssd-lookup: %+v", e)
 }
