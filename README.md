@@ -1,4 +1,4 @@
-# go-eiscp
+# go-onkyo
 
 This started as a fork of github.com/reddec/go-eiscp, but has mutated into its own thing.
 
