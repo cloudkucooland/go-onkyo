@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/brutella/dnssd v1.2.0
-	github.com/miekg/dns v1.1.41 // indirect
-	golang.org/x/net v0.0.0-20210420210106-798c2154c571 // indirect
-	golang.org/x/sys v0.0.0-20210420205809-ac73e9fd8988 // indirect
+	github.com/miekg/dns v1.1.43 // indirect
+	golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d // indirect
+	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
 )
