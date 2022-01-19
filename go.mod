@@ -1,4 +1,4 @@
-module github.com/cloudkucooland/go-eiscp
+module github.com/cloudkucooland/go-onkyo
 
 go 1.14
 

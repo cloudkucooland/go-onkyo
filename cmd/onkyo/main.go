@@ -3,8 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/cloudkucooland/go-eiscp"
 	"strconv"
+
+	"github.com/cloudkucooland/go-onkyo"
 )
 
 func main() {
