@@ -229,7 +229,7 @@ func main() {
 			}
 			fmt.Printf("listening mode: %s\n", s)
 		case "help":
-			fmt.Println("set commands: select, nja, netsrc, netpreset, source, volume, power")
+			fmt.Println("set commands: select, listeningmode, nja, netsrc, netpreset, source, volume, power")
 		default:
 			mm, err := dev.SetGetAll(command, value)
 			if err != nil {
