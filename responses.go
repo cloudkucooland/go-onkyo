@@ -8,8 +8,8 @@ import (
 
 // bundle these together, whenever we see an NLT, start over.
 type menu struct {
-	NLS []*NLS
 	NLT *NLT
+	NLS []*NLS
 }
 
 var Menu menu

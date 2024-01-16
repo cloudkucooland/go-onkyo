@@ -22,15 +22,15 @@ const (
 
 // Device of Onkyo receiver
 type Device struct {
-	Host             string
-	persistent       bool
 	conn             *net.TCPConn
-	destinationType  DeviceType
-	version          byte
 	sender           chan Command
 	privateResponses chan Message
 	Responses        chan Message
+	Host             string
 	mux              sync.Mutex
+	persistent       bool
+	destinationType  DeviceType
+	version          byte
 }
 
 // just use the NewReceiver shortcut

@@ -140,11 +140,11 @@ type NetworkPlayStatus struct {
 }
 
 type NetworkMenuStatus struct {
+	Service            string
+	ServiceName        string
+	ElapsedTimeMode    int
 	Menu               bool
 	PositiveButtonIcon bool
 	NegativeButtonIcon bool
 	SeekTime           bool
-	ElapsedTimeMode    int
-	Service            string
-	ServiceName        string
 }

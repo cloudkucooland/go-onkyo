@@ -7,14 +7,14 @@ import (
 
 // Message eISCP
 type Message struct {
-	Version     byte        // always the same
-	Destination byte        // always the same
-	headerSize  uint32      // always the same
-	dataSize    uint32      // does this need to be here now? once parsed it is never touched again
-	raw         []byte      // used for sending
+	Parsed      interface{} // the response value pased into ... whatever is appropriate
 	Command     string      // verify you've got the right Command
 	Response    string      // the response value
-	Parsed      interface{} // the response value pased into ... whatever is appropriate
+	raw         []byte      // used for sending
+	headerSize  uint32      // always the same
+	dataSize    uint32      // does this need to be here now? once parsed it is never touched again
+	Version     byte        // always the same
+	Destination byte        // always the same
 	Valid       bool        // if the packet was able to be parsed
 }
 
