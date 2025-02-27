@@ -60,13 +60,13 @@ func newDevice(host string, deviceType DeviceType, iscpVersion byte, persistent 
 		d.Responses = make(chan Message, 50)        // the channel for the application to listen on
 		d.privateResponses = make(chan Message, 50) // the channel for SetGetAll/SetGet to use
 
-		go func(dev Device) {
+		go func() {
 			d.persistentListener()
-		}(d)
+		}()
 
-		go func(dev Device) {
+		go func() {
 			d.persistentSender()
-		}(d)
+		}()
 	}
 
 	return &d, nil
@@ -211,6 +211,7 @@ func (d *Device) persistentListener() error {
 		// NRI needs this on TX-NR686 (lowest threshold not researched)
 		time.Sleep(time.Millisecond * 10)
 	}
+    // not reached
 	return nil
 }
 
